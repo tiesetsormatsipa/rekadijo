@@ -1,0 +1,965 @@
+// RekaDijo — Prisma schema
+// TechTur Solutions — quotation-first food ordering platform
+// PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────
+
+enum GlobalRole {
+  SUPERADMIN
+  ADMIN
+  VENDOR_OWNER
+  VENDOR_STAFF
+  BUYER
+  DRIVER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  DEACTIVATED
+}
+
+enum BusinessStatus {
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  KITCHEN
+  FRONT_OF_HOUSE
+  DRIVER_COORDINATOR
+}
+
+enum OrderingMode {
+  QUOTATION_ONLY
+  INSTANT_ONLY
+  BOTH
+}
+
+enum FulfillmentType {
+  PICKUP
+  DELIVERY
+  EITHER
+}
+
+enum QuotationStatus {
+  DRAFT
+  PENDING
+  VIEWED
+  REVISED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  PAYMENT_PENDING
+  PAID
+  SCHEDULED
+  IN_PREPARATION
+  READY
+  COMPLETED
+  CANCELED
+}
+
+enum QuotationSource {
+  BUYER_INITIATED
+  VENDOR_INITIATED
+}
+
+enum OrderStatus {
+  PAYMENT_PENDING
+  PAID
+  SCHEDULED
+  IN_PREPARATION
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELED
+  REFUNDED
+}
+
+enum OrderType {
+  QUOTATION
+  INSTANT
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentProvider {
+  PLACEHOLDER_MANUAL
+  PLACEHOLDER_CARD
+  PLACEHOLDER_EFT
+  PLACEHOLDER_WALLET
+}
+
+enum MediaType {
+  IMAGE
+  GIF
+  VIDEO
+}
+
+enum MediaOwnerType {
+  BUSINESS
+  BRANCH
+  MENU_ITEM
+  USER
+  QUOTATION
+  MESSAGE
+  REVIEW
+}
+
+enum ReviewTargetType {
+  BUSINESS
+  DRIVER
+  BUYER
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationType {
+  QUOTATION_CREATED
+  QUOTATION_REVISED
+  QUOTATION_ACCEPTED
+  QUOTATION_DECLINED
+  QUOTATION_EXPIRING
+  PAYMENT_RECEIVED
+  ORDER_STATUS_CHANGED
+  MESSAGE_RECEIVED
+  BUSINESS_VERIFIED
+  BUSINESS_REJECTED
+  DRIVER_ASSIGNED
+  SYSTEM
+}
+
+enum ConversationType {
+  BUYER_VENDOR
+  BUYER_DRIVER
+  VENDOR_DRIVER
+  STAFF_OWNER
+  ADMIN_USER
+}
+
+enum DriverAssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  DECLINED
+  EN_ROUTE_PICKUP
+  PICKED_UP
+  EN_ROUTE_DROPOFF
+  DELIVERED
+  CANCELED
+}
+
+enum OrderSizeCategory {
+  SMALL
+  MEDIUM
+  LARGE
+  BULK
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  SUSPEND
+  RESTORE
+  LOGIN
+  LOGOUT
+  OTHER
+}
+
+enum PromotionType {
+  PERCENTAGE_OFF
+  AMOUNT_OFF
+  FREE_DELIVERY
+}
+
+enum PromotionScope {
+  PLATFORM
+  BUSINESS
+}
+
+enum CancelledBy {
+  BUYER
+  VENDOR
+  ADMIN
+  SYSTEM
+}
+
+enum DietaryTag {
+  VEGETARIAN
+  VEGAN
+  HALAL
+  KOSHER
+  CONTAINS_NUTS
+  SPICY
+  GLUTEN_FREE
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// USERS, ROLES, PERMISSIONS (RBAC / PBAC)
+// ─────────────────────────────────────────────────────────────────────────
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  phone                String?               @unique
+  passwordHash         String
+  firstName            String
+  lastName             String
+  avatarUrl            String?
+  globalRole           GlobalRole
+  status               UserStatus            @default(ACTIVE)
+  isDevSeed            Boolean               @default(false)
+  emailVerifiedAt      DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
+
+  roles                UserRole[]
+  ownedBusinesses      Business[]            @relation("BusinessOwner")
+  staffMemberships     BusinessStaff[]
+  buyerQuotations      Quotation[]           @relation("QuotationBuyer")
+  buyerOrders          Order[]               @relation("OrderBuyer")
+  driverProfile        DriverProfile?
+  savedVendors         SavedVendor[]
+  reviewsWritten       Review[]              @relation("ReviewAuthor")
+  reviewsReceived      Review[]              @relation("ReviewTargetUser")
+  notifications        Notification[]
+  conversationMembers  ConversationMember[]
+  messagesSent         Message[]
+  auditLogs            AuditLog[]            @relation("AuditActor")
+  adminActions         AdminAction[]         @relation("AdminActor")
+  addresses            BuyerAddress[]
+  favoriteMenuItems    FavoriteMenuItem[]
+  promotionRedemptions PromotionRedemption[]
+
+  @@index([globalRole])
+  @@index([status])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  key         String           @unique // e.g. "vendor_manager", "custom_support_agent"
+  name        String
+  description String?
+  isSystem    Boolean          @default(false) // system roles cannot be deleted
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  permissions RolePermission[]
+  userRoles   UserRole[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "quotation.approve", "menu.edit", "business.verify"
+  label       String
+  category    String // "quotation", "menu", "business", "order", "admin", "driver"
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id         String    @id @default(cuid())
+  userId     String
+  roleId     String
+  businessId String? // scoped role, e.g. "manager" role at a specific business
+  createdAt  DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BUSINESSES, BRANCHES, STAFF
+// ─────────────────────────────────────────────────────────────────────────
+
+model Business {
+  id                     String                 @id @default(cuid())
+  slug                   String                 @unique
+  name                   String
+  ownerId                String
+  description            String?
+  category               String // e.g. "Kota & Sphatlo", "Home-cooked", "Catering", "Bakery"
+  status                 BusinessStatus         @default(PENDING_VERIFICATION)
+  orderingMode           OrderingMode           @default(QUOTATION_ONLY)
+  logoUrl                String?
+  coverImageUrl          String?
+  whatsapp               String?
+  email                  String?
+  minOrderAmount         Decimal?               @db.Decimal(10, 2)
+  leadTimeHours          Int                    @default(24) // default prep/response lead time
+  quotationResponseHours Int                    @default(48) // vendor SLA to respond
+  avgRating              Decimal                @default(0) @db.Decimal(3, 2)
+  reviewCount            Int                    @default(0)
+  verifiedAt             DateTime?
+  verificationNotes      String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  deletedAt              DateTime?
+
+  owner            User                   @relation("BusinessOwner", fields: [ownerId], references: [id])
+  branches         Branch[]
+  staff            BusinessStaff[]
+  menuCategories   MenuCategory[]
+  menuItems        MenuItem[]
+  media            Media[]
+  quotations       Quotation[]
+  orders           Order[]
+  reviews          Review[]               @relation("ReviewTargetBusiness")
+  savedBy          SavedVendor[]
+  verificationDocs VerificationDocument[]
+  scopedUserRoles  UserRole[]
+  deliveryZones    DeliveryZone[]
+  promotions       Promotion[]
+
+  @@index([status])
+  @@index([category])
+}
+
+model VerificationDocument {
+  id         String   @id @default(cuid())
+  businessId String
+  label      String // "Business Registration", "ID Document", "Health Permit"
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Branch {
+  id                   String          @id @default(cuid())
+  businessId           String
+  name                 String // e.g. "TR. Matsipa Market — Warrenton"
+  addressLine          String
+  suburb               String?
+  city                 String
+  postalCode           String?
+  latitude             Decimal         @db.Decimal(9, 6)
+  longitude            Decimal         @db.Decimal(9, 6)
+  fulfillmentType      FulfillmentType @default(EITHER)
+  deliveryRadiusKm     Decimal?        @db.Decimal(5, 2)
+  isActive             Boolean         @default(true)
+  acceptsInstantOrders Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+
+  business          Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  operatingHours    OperatingHour[]
+  itemAvailability  BranchItemAvailability[]
+  quotations        Quotation[]
+  orders            Order[]
+  deliveryZones     DeliveryZone[]
+  driverAssignments DriverAssignment[]
+  media             Media[]
+
+  @@index([businessId])
+  @@index([city])
+}
+
+model OperatingHour {
+  id        String  @id @default(cuid())
+  branchId  String
+  dayOfWeek Int // 0 = Sunday ... 6 = Saturday
+  openTime  String // "08:00"
+  closeTime String // "18:00"
+  isClosed  Boolean @default(false)
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, dayOfWeek])
+}
+
+model DeliveryZone {
+  id          String   @id @default(cuid())
+  businessId  String
+  branchId    String
+  name        String // "Within 5km", "Warrenton CBD"
+  maxRadiusKm Decimal  @db.Decimal(5, 2)
+  deliveryFee Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+}
+
+model BusinessStaff {
+  id         String    @id @default(cuid())
+  businessId String
+  userId     String
+  role       StaffRole @default(FRONT_OF_HOUSE)
+  isActive   Boolean   @default(true)
+  invitedAt  DateTime  @default(now())
+  joinedAt   DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MENU
+// ─────────────────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items    MenuItem[]
+
+  @@index([businessId])
+}
+
+model MenuItem {
+  id                 String       @id @default(cuid())
+  businessId         String
+  categoryId         String
+  name               String
+  description        String?
+  basePrice          Decimal      @db.Decimal(10, 2)
+  unitLabel          String? // "20L bucket", "2L bottle", "portion"
+  minQuantity        Int          @default(1)
+  maxQuantity        Int?
+  allowInstantOrder  Boolean      @default(false) // vendor default; can be overridden per branch
+  allowQuotation     Boolean      @default(true)
+  showStockToBuyer   Boolean      @default(false)
+  dietaryTags        DietaryTag[] @default([])
+  isActive           Boolean      @default(true)
+  sortOrder          Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+
+  business           Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category           MenuCategory             @relation(fields: [categoryId], references: [id])
+  options            MenuItemOption[]
+  media              Media[]
+  branchAvailability BranchItemAvailability[]
+  quotationItems     QuotationItem[]
+  orderItems         OrderItem[]
+  favoritedBy        FavoriteMenuItem[]
+
+  @@index([businessId])
+  @@index([categoryId])
+}
+
+model FavoriteMenuItem {
+  id         String   @id @default(cuid())
+  userId     String
+  menuItemId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, menuItemId])
+}
+
+model MenuItemOption {
+  id          String  @id @default(cuid())
+  menuItemId  String
+  name        String // "Size", "Add-on"
+  choiceLabel String // "Small", "Medium", "Large", "Extra chakalaka"
+  priceDelta  Decimal @default(0) @db.Decimal(10, 2)
+  isDefault   Boolean @default(false)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+// Per-branch override of an item: availability, stock, price override
+model BranchItemAvailability {
+  id                 String   @id @default(cuid())
+  branchId           String
+  menuItemId         String
+  isAvailable        Boolean  @default(true)
+  isInstantOrderable Boolean  @default(false) // overrides item default per branch
+  stockQuantity      Int? // vendor-only unless showStockToBuyer is true on MenuItem
+  lowStockThreshold  Int?     @default(5)
+  priceOverride      Decimal? @db.Decimal(10, 2)
+  updatedAt          DateTime @updatedAt
+
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, menuItemId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MEDIA
+// ─────────────────────────────────────────────────────────────────────────
+
+model Media {
+  id           String         @id @default(cuid())
+  type         MediaType
+  url          String
+  thumbnailUrl String?
+  ownerType    MediaOwnerType
+  altText      String?
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([ownerType])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// QUOTATIONS (the heart of the platform)
+// ─────────────────────────────────────────────────────────────────────────
+
+model Quotation {
+  id                String            @id @default(cuid())
+  reference         String            @unique // e.g. "RQ-2026-000123"
+  businessId        String
+  branchId          String
+  buyerId           String
+  source            QuotationSource
+  status            QuotationStatus   @default(DRAFT)
+  eventType         String? // "Birthday", "Church order", "Office lunch", "Wedding", etc.
+  fulfillmentType   FulfillmentType
+  requestedDate     DateTime // preferred collection/delivery date & time
+  notes             String?
+  deliveryAddress   String?
+  deliveryLat       Decimal?          @db.Decimal(9, 6)
+  deliveryLng       Decimal?          @db.Decimal(9, 6)
+  deliveryFee       Decimal?          @db.Decimal(10, 2)
+  subtotal          Decimal           @default(0) @db.Decimal(10, 2)
+  total             Decimal           @default(0) @db.Decimal(10, 2)
+  sizeCategory      OrderSizeCategory @default(SMALL)
+  estimatedServings Int?
+  vendorMessage     String? // message from vendor when revising/declining
+  expiresAt         DateTime?
+  viewedAt          DateTime?
+  acceptedAt        DateTime?
+  declinedAt        DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  business     Business            @relation(fields: [businessId], references: [id])
+  branch       Branch              @relation(fields: [branchId], references: [id])
+  buyer        User                @relation("QuotationBuyer", fields: [buyerId], references: [id])
+  items        QuotationItem[]
+  revisions    QuotationRevision[]
+  order        Order?              @relation("QuotationToOrder")
+  conversation Conversation?
+
+  @@index([businessId, status])
+  @@index([buyerId])
+  @@index([branchId])
+}
+
+model QuotationItem {
+  id             String   @id @default(cuid())
+  quotationId    String
+  menuItemId     String
+  nameSnapshot   String // snapshot in case menu item changes later
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  lineTotal      Decimal  @db.Decimal(10, 2)
+  optionsSnapshot Json? // selected options/add-ons at time of request
+  notes          String?
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id])
+
+  @@index([quotationId])
+}
+
+// Every time the vendor or buyer revises price/quantity/date, a snapshot is stored
+model QuotationRevision {
+  id            String   @id @default(cuid())
+  quotationId   String
+  revisedById   String // user id of whoever made the revision
+  revisionNo    Int
+  itemsSnapshot Json // full items array at this revision
+  subtotal      Decimal  @db.Decimal(10, 2)
+  deliveryFee   Decimal? @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+  message       String?
+  createdAt     DateTime @default(now())
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ORDERS & PAYMENTS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Order {
+  id              String            @id @default(cuid())
+  reference       String            @unique // "RO-2026-000123"
+  type            OrderType
+  quotationId     String?           @unique
+  businessId      String
+  branchId        String
+  buyerId         String
+  status          OrderStatus       @default(PAYMENT_PENDING)
+  fulfillmentType FulfillmentType
+  isAsap          Boolean           @default(true) // instant orders: ASAP vs scheduled for later
+  scheduledFor    DateTime?
+  deliveryAddress String?
+  deliveryLat     Decimal?          @db.Decimal(9, 6)
+  deliveryLng     Decimal?          @db.Decimal(9, 6)
+  deliveryFee     Decimal?          @db.Decimal(10, 2)
+  subtotal        Decimal           @db.Decimal(10, 2)
+  discountAmount  Decimal           @default(0) @db.Decimal(10, 2)
+  tipAmount       Decimal           @default(0) @db.Decimal(10, 2)
+  total           Decimal           @db.Decimal(10, 2)
+  sizeCategory    OrderSizeCategory @default(SMALL)
+  cancelReason    String?
+  cancelledBy     CancelledBy?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  completedAt     DateTime?
+  canceledAt      DateTime?
+
+  quotation           Quotation?           @relation("QuotationToOrder", fields: [quotationId], references: [id])
+  business            Business            @relation(fields: [businessId], references: [id])
+  branch              Branch              @relation(fields: [branchId], references: [id])
+  buyer               User                @relation("OrderBuyer", fields: [buyerId], references: [id])
+  items               OrderItem[]
+  payments            Payment[]
+  driverAssignment    DriverAssignment?
+  reviews             Review[]
+  promotionRedemption PromotionRedemption?
+
+  @@index([businessId, status])
+  @@index([buyerId])
+  @@index([branchId])
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  menuItemId     String
+  nameSnapshot   String
+  quantity       Int
+  unitPrice      Decimal @db.Decimal(10, 2)
+  lineTotal      Decimal @db.Decimal(10, 2)
+  optionsSnapshot Json?
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
+
+model Payment {
+  id            String          @id @default(cuid())
+  orderId       String
+  provider      PaymentProvider @default(PLACEHOLDER_MANUAL)
+  status        PaymentStatus   @default(PENDING)
+  amount        Decimal         @db.Decimal(10, 2)
+  currency      String          @default("ZAR")
+  providerRef   String? // external gateway reference — populated once real gateway is wired
+  paidAt        DateTime?
+  failureReason String?
+  createdAt     DateTime        @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model BuyerAddress {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String // "Home", "Work"
+  addressLine String
+  city        String
+  postalCode  String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+  isDefault   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// DRIVERS
+// ─────────────────────────────────────────────────────────────────────────
+
+model DriverProfile {
+  id           String            @id @default(cuid())
+  userId       String            @unique
+  vehicleType  String? // "Motorbike", "Sedan", "Bakkie"
+  licensePlate String?
+  isAvailable  Boolean           @default(true)
+  avgRating    Decimal           @default(0) @db.Decimal(3, 2)
+  ratingCount  Int               @default(0)
+  currentLat   Decimal?          @db.Decimal(9, 6)
+  currentLng   Decimal?          @db.Decimal(9, 6)
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments DriverAssignment[]
+}
+
+model DriverAssignment {
+  id          String                 @id @default(cuid())
+  orderId     String                 @unique
+  driverId    String
+  branchId    String
+  status      DriverAssignmentStatus @default(ASSIGNED)
+  assignedAt  DateTime               @default(now())
+  pickedUpAt  DateTime?
+  deliveredAt DateTime?
+
+  order  Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@index([driverId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// REVIEWS / RATINGS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Review {
+  id         String           @id @default(cuid())
+  targetType ReviewTargetType
+  authorId   String
+  orderId    String?
+  rating     Int // 1–5
+  comment    String?
+  createdAt  DateTime         @default(now())
+
+  businessId String?
+  business   Business? @relation("ReviewTargetBusiness", fields: [businessId], references: [id])
+
+  targetUserId String? // driver or buyer being reviewed
+  targetUser   User?     @relation("ReviewTargetUser", fields: [targetUserId], references: [id])
+
+  author User  @relation("ReviewAuthor", fields: [authorId], references: [id])
+  order  Order? @relation(fields: [orderId], references: [id])
+
+  @@index([businessId])
+  @@index([targetUserId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SAVED VENDORS
+// ─────────────────────────────────────────────────────────────────────────
+
+model SavedVendor {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// COMMUNICATION
+// ─────────────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id          String           @id @default(cuid())
+  type        ConversationType
+  quotationId String?          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  quotation Quotation?           @relation(fields: [quotationId], references: [id])
+  members   ConversationMember[]
+  messages  Message[]
+}
+
+model ConversationMember {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String
+  attachmentUrl  String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  body      String
+  linkUrl   String?
+  isRead    Boolean             @default(false)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ADMIN / AUDIT / SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  entityType String // "Business", "Quotation", "Order", "User"...
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  actorId    String
+  actionType String // "business.approve", "business.suspend", "user.suspend"
+  targetType String
+  targetId   String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  actor User @relation("AdminActor", fields: [actorId], references: [id])
+
+  @@index([targetType, targetId])
+}
+
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PROMOTIONS
+// ─────────────────────────────────────────────────────────────────────────
+
+model Promotion {
+  id             String         @id @default(cuid())
+  code           String         @unique // e.g. "WELCOME20", entered at checkout
+  scope          PromotionScope @default(PLATFORM)
+  businessId     String? // set when scope is BUSINESS; null for platform-wide codes
+  type           PromotionType
+  value          Decimal        @db.Decimal(10, 2) // percentage (0-100) or flat amount, per `type`
+  minOrderAmount Decimal?       @db.Decimal(10, 2)
+  maxDiscount    Decimal?       @db.Decimal(10, 2) // cap for percentage-off codes
+  usageLimit     Int? // total redemptions allowed platform-wide; null = unlimited
+  perUserLimit   Int            @default(1)
+  startsAt       DateTime       @default(now())
+  expiresAt      DateTime?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  business    Business?             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions PromotionRedemption[]
+
+  @@index([businessId])
+}
+
+model PromotionRedemption {
+  id          String   @id @default(cuid())
+  promotionId String
+  userId      String
+  orderId     String?  @unique
+  amountOff   Decimal  @db.Decimal(10, 2)
+  redeemedAt  DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+  order     Order?    @relation(fields: [orderId], references: [id])
+
+  @@index([promotionId, userId])
+}
