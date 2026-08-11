@@ -14,11 +14,14 @@ export default async function VendorDetailPage({
   params,
   searchParams
 }: {
-  params: { slug: string };
-  searchParams: { branch?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ branch?: string }>;
 }) {
+  const { slug } = await params;
+  const { branch } = await searchParams;
+
   const business = await prisma.business.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: {
       branches: {
         where: { isActive: true },
@@ -40,7 +43,7 @@ export default async function VendorDetailPage({
   if (!business || business.status !== "APPROVED") notFound();
 
   const activeBranch =
-    business.branches.find((b) => b.id === searchParams.branch) ?? business.branches[0] ?? null;
+    business.branches.find((b) => b.id === branch) ?? business.branches[0] ?? null;
 
   const user = await getCurrentUser();
   const savedVendor = user

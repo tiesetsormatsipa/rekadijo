@@ -3,19 +3,21 @@ import { VendorCard } from "@/components/vendor-card";
 import { CategoryRow } from "@/components/category-row";
 import { SearchBar } from "@/components/search-bar";
 import type { Prisma } from "@prisma/client";
+import { createBranchListings } from "@/lib/branch-listings";
 
 export const metadata = { title: "Search food" };
 
 export default async function SearchPage({
   searchParams
 }: {
-  searchParams: { q?: string; mode?: string; sort?: string };
+  searchParams: Promise<{ q?: string; mode?: string; sort?: string }>;
 }) {
-  const q = searchParams.q?.trim() ?? "";
+  const { q: rawQuery, mode, sort } = await searchParams;
+  const q = rawQuery?.trim() ?? "";
 
   let businesses: Awaited<ReturnType<typeof runSearch>> = [];
   if (q) {
-    businesses = await runSearch(q, searchParams.mode, searchParams.sort);
+    businesses = await runSearch(q, mode, sort);
   }
 
   return (
@@ -35,14 +37,14 @@ export default async function SearchPage({
         <div className="mt-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-charcoal-600">
-              <span className="font-semibold text-charcoal-900">{businesses.length}</span> vendor
-              {businesses.length !== 1 ? "s" : ""} selling &quot;{q}&quot;
+              <span className="font-semibold text-charcoal-900">{businesses.length}</span> branch
+              {businesses.length !== 1 ? "es" : ""} selling &quot;{q}&quot;
             </p>
             <form className="flex gap-2" action="/search">
               <input type="hidden" name="q" value={q} />
               <select
                 name="mode"
-                defaultValue={searchParams.mode ?? ""}
+                defaultValue={mode ?? ""}
                 className="rounded-full border border-charcoal-200 bg-white px-3 py-1.5 text-xs focus-ring"
               >
                 <option value="">Delivery or pickup</option>
@@ -51,7 +53,7 @@ export default async function SearchPage({
               </select>
               <select
                 name="sort"
-                defaultValue={searchParams.sort ?? "rating"}
+                defaultValue={sort ?? "rating"}
                 className="rounded-full border border-charcoal-200 bg-white px-3 py-1.5 text-xs focus-ring"
               >
                 <option value="rating">Top rated</option>
@@ -102,7 +104,7 @@ async function runSearch(q: string, mode?: string, sort?: string) {
   const results = await prisma.business.findMany({
     where,
     include: {
-      branches: { where: { isActive: true }, take: 1 },
+      branches: { where: { isActive: true } },
       menuItems: {
         where: { name: { contains: q, mode: "insensitive" }, isActive: true, deletedAt: null },
         select: { name: true },
@@ -112,5 +114,10 @@ async function runSearch(q: string, mode?: string, sort?: string) {
     orderBy: sort === "name" ? { name: "asc" } : { avgRating: "desc" }
   });
 
-  return results.map((b) => ({ ...b, matchedItemNames: b.menuItems.map((m) => m.name) }));
+  return results.flatMap((business) =>
+    createBranchListings([business]).map((listing) => ({
+      ...listing,
+      matchedItemNames: business.menuItems.map((m) => m.name)
+    }))
+  );
 }

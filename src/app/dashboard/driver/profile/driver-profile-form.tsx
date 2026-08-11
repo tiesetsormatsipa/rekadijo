@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { updateDriverProfileAction } from "@/server/actions/driver";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ function SubmitButton() {
 }
 
 export function DriverProfileForm({ vehicleType, licensePlate }: { vehicleType: string; licensePlate: string }) {
-  const [state, formAction] = useFormState(updateDriverProfileAction, initialState);
+  const [state, formAction] = useActionState(updateDriverProfileAction, initialState);
 
   return (
     <form action={formAction} className="space-y-3">

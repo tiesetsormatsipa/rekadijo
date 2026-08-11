@@ -6,16 +6,18 @@ import { CategoryRow } from "@/components/category-row";
 import { SearchBar } from "@/components/search-bar";
 import { NearbyVendorsSection } from "@/components/nearby-vendors-section";
 import { ArrowRight, ClipboardList, ShieldCheck, Truck } from "lucide-react";
+import { createBranchListings } from "@/lib/branch-listings";
 
 export default async function HomePage() {
   const businesses = await prisma.business.findMany({
     where: { status: "APPROVED", deletedAt: null },
-    include: { branches: { where: { isActive: true }, take: 1 } },
+    include: { branches: { where: { isActive: true } } },
     orderBy: { avgRating: "desc" },
     take: 8
   });
 
   const categories = Array.from(new Set(businesses.map((b) => b.category)));
+  const branchListings = createBranchListings(businesses, { limit: 8 });
 
   return (
     <div>
@@ -109,12 +111,12 @@ export default async function HomePage() {
           </Link>
         </div>
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {businesses.length === 0 ? (
+          {branchListings.length === 0 ? (
             <p className="col-span-full rounded-xl border border-dashed border-charcoal-200 p-8 text-center text-charcoal-500">
               No vendors yet — run <code className="rounded bg-charcoal-100 px-1">npm run db:seed</code> to load sample data.
             </p>
           ) : (
-            businesses.map((business) => <VendorCard key={business.id} business={business} />)
+            branchListings.map((business) => <VendorCard key={business.id} business={business} />)
           )}
         </div>
       </section>

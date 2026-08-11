@@ -2,33 +2,35 @@ import { prisma } from "@/lib/prisma";
 import { VendorCard } from "@/components/vendor-card";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
+import { createBranchListings } from "@/lib/branch-listings";
 
 export const metadata = { title: "Find vendors" };
 
 export default async function VendorsPage({
   searchParams
 }: {
-  searchParams: { q?: string; category?: string; mode?: string };
+  searchParams: Promise<{ q?: string; category?: string; mode?: string }>;
 }) {
+  const { q, category, mode } = await searchParams;
   const where: Prisma.BusinessWhereInput = {
     status: "APPROVED",
     deletedAt: null
   };
 
-  if (searchParams.q) {
+  if (q) {
     where.OR = [
-      { name: { contains: searchParams.q, mode: "insensitive" } },
-      { menuItems: { some: { name: { contains: searchParams.q, mode: "insensitive" } } } }
+      { name: { contains: q, mode: "insensitive" } },
+      { menuItems: { some: { name: { contains: q, mode: "insensitive" } } } }
     ];
   }
-  if (searchParams.category) where.category = searchParams.category;
-  if (searchParams.mode === "instant") where.orderingMode = { in: ["BOTH", "INSTANT_ONLY"] };
-  if (searchParams.mode === "quotation") where.orderingMode = { in: ["BOTH", "QUOTATION_ONLY"] };
+  if (category) where.category = category;
+  if (mode === "instant") where.orderingMode = { in: ["BOTH", "INSTANT_ONLY"] };
+  if (mode === "quotation") where.orderingMode = { in: ["BOTH", "QUOTATION_ONLY"] };
 
   const [businesses, categories] = await Promise.all([
     prisma.business.findMany({
       where,
-      include: { branches: { where: { isActive: true }, take: 1 } },
+      include: { branches: { where: { isActive: true } } },
       orderBy: { avgRating: "desc" }
     }),
     prisma.business.findMany({
@@ -37,6 +39,7 @@ export default async function VendorsPage({
       distinct: ["category"]
     })
   ]);
+  const branchListings = createBranchListings(businesses);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -47,13 +50,13 @@ export default async function VendorsPage({
         <input
           type="search"
           name="q"
-          defaultValue={searchParams.q}
+          defaultValue={q}
           placeholder="Search vendors or menu items..."
           className="min-w-[240px] flex-1 rounded-full border border-charcoal-200 bg-white px-4 py-2.5 text-sm focus-ring"
         />
         <select
           name="category"
-          defaultValue={searchParams.category ?? ""}
+          defaultValue={category ?? ""}
           className="rounded-full border border-charcoal-200 bg-white px-4 py-2.5 text-sm focus-ring"
         >
           <option value="">All categories</option>
@@ -65,7 +68,7 @@ export default async function VendorsPage({
         </select>
         <select
           name="mode"
-          defaultValue={searchParams.mode ?? ""}
+          defaultValue={mode ?? ""}
           className="rounded-full border border-charcoal-200 bg-white px-4 py-2.5 text-sm focus-ring"
         >
           <option value="">Any ordering mode</option>
@@ -78,7 +81,7 @@ export default async function VendorsPage({
       </form>
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {businesses.length === 0 ? (
+        {branchListings.length === 0 ? (
           <p className="col-span-full rounded-xl border border-dashed border-charcoal-200 p-10 text-center text-charcoal-500">
             No vendors match your search.{" "}
             <Link href="/vendors" className="font-semibold text-amber-700">
@@ -86,7 +89,7 @@ export default async function VendorsPage({
             </Link>
           </p>
         ) : (
-          businesses.map((business) => <VendorCard key={business.id} business={business} />)
+          branchListings.map((business) => <VendorCard key={business.id} business={business} />)
         )}
       </div>
     </div>

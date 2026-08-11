@@ -11,7 +11,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   }, [error]);
 
   return (
-    <html>
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 text-center">
           <h1 className="font-display text-2xl font-semibold text-charcoal-900">Something went wrong</h1>

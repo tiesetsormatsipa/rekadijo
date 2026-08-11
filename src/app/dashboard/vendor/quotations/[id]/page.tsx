@@ -8,12 +8,13 @@ import { VendorQuotationTools } from "./vendor-quotation-tools";
 import { markQuotationViewedAction } from "@/server/actions/quotations";
 import { MessageButton } from "@/components/message-button";
 
-export default async function VendorQuotationDetailPage({ params }: { params: { id: string } }) {
+export default async function VendorQuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const quotation = await prisma.quotation.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { business: true, branch: true, buyer: true, items: true }
   });
   if (!quotation) notFound();

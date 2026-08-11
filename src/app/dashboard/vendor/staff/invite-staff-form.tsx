@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { inviteStaffAction } from "@/server/actions/staff";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ function SubmitButton() {
 }
 
 export function InviteStaffForm({ businessId }: { businessId: string }) {
-  const [state, formAction] = useFormState(inviteStaffAction, initialState);
+  const [state, formAction] = useActionState(inviteStaffAction, initialState);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">

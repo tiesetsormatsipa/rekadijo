@@ -10,12 +10,13 @@ import { OrderActions } from "./order-actions";
 const ORDER_STEPS = ["PAID", "SCHEDULED", "IN_PREPARATION", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"] as const;
 const BUYER_CANCELABLE_STATUSES = ["PAYMENT_PENDING", "PAID", "SCHEDULED"];
 
-export default async function BuyerOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function BuyerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { business: true, branch: true, items: true, driverAssignment: { include: { driver: { include: { user: true } } } } }
   });
   if (!order || order.buyerId !== user.id) notFound();

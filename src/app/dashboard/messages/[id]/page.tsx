@@ -3,17 +3,18 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MessageThread } from "./message-thread";
 
-export default async function ConversationPage({ params }: { params: { id: string } }) {
+export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const membership = await prisma.conversationMember.findUnique({
-    where: { conversationId_userId: { conversationId: params.id, userId: user.id } }
+    where: { conversationId_userId: { conversationId: id, userId: user.id } }
   });
   if (!membership) notFound();
 
   const conversation = await prisma.conversation.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       quotation: { include: { business: true, buyer: true } },
       messages: { orderBy: { createdAt: "asc" }, include: { sender: true } }

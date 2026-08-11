@@ -1,9 +1,9 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { registerAction, type ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 const initialState: ActionResult | null = null;
 
@@ -17,7 +17,7 @@ function SubmitButton() {
 }
 
 export function RegisterForm() {
-  const [state, formAction] = useFormState(registerAction, initialState);
+  const [state, formAction] = useActionState(registerAction, initialState);
   const [role, setRole] = useState<"BUYER" | "VENDOR_OWNER" | "DRIVER">("BUYER");
 
   return (

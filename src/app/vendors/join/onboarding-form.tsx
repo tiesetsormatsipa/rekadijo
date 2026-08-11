@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { registerBusinessAction } from "@/server/actions/business";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ const inputClass = "mt-1 w-full rounded-lg border border-charcoal-200 px-3 py-2.
 const labelClass = "block text-sm font-medium text-charcoal-700";
 
 export function OnboardingForm() {
-  const [state, formAction] = useFormState(registerBusinessAction, initialState);
+  const [state, formAction] = useActionState(registerBusinessAction, initialState);
 
   return (
     <form action={formAction} className="space-y-5">

@@ -62,13 +62,9 @@ export function VendorMap({ branches, userLocation, focusedBranchId }: VendorMap
       : [0, 0];
   }, [userLocation, branches]);
 
-  // FIXED: Dynamic key forces a clean MapContainer remount when the base location loads or HMR fires
-  const mapInstanceKey = `${defaultCenter[0]}-${defaultCenter[1]}`;
-
   return (
     <div className="h-full w-full relative">
       <MapContainer
-        key={mapInstanceKey}
         center={defaultCenter}
         zoom={12}
         scrollWheelZoom={true}

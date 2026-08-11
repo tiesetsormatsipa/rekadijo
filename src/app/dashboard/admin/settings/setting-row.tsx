@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { updatePlatformSettingAction } from "@/server/actions/platform-settings";
 import type { ActionResult } from "@/server/actions/auth";
 
@@ -20,7 +21,7 @@ function SaveButton() {
 }
 
 export function SettingRow({ settingKey, label, value }: { settingKey: string; label: string; value: string }) {
-  const [state, formAction] = useFormState(updatePlatformSettingAction, initialState);
+  const [state, formAction] = useActionState(updatePlatformSettingAction, initialState);
 
   return (
     <form action={formAction} className="flex items-end gap-3 rounded-xl border border-charcoal-100 bg-white p-4 shadow-card">

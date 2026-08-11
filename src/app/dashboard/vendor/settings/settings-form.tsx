@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { updateBusinessSettingsAction } from "@/server/actions/branch";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ export function SettingsForm(props: {
   quotationResponseHours: number;
   orderingMode: OrderingMode;
 }) {
-  const [state, formAction] = useFormState(updateBusinessSettingsAction, initialState);
+  const [state, formAction] = useActionState(updateBusinessSettingsAction, initialState);
 
   return (
     <form action={formAction} className="space-y-4">

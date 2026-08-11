@@ -1,10 +1,10 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { createPromotionAction } from "@/server/actions/promotions";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 const initialState: ActionResult | null = null;
 
@@ -18,7 +18,7 @@ function SubmitButton() {
 }
 
 export function NewPromotionForm({ businessId }: { businessId: string }) {
-  const [state, formAction] = useFormState(createPromotionAction, initialState);
+  const [state, formAction] = useActionState(createPromotionAction, initialState);
   const [type, setType] = useState<"PERCENTAGE_OFF" | "AMOUNT_OFF" | "FREE_DELIVERY">("PERCENTAGE_OFF");
 
   return (

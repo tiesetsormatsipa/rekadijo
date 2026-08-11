@@ -1,11 +1,11 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createBranchAction } from "@/server/actions/branch";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
 
 const initialState: ActionResult | null = null;
 const inputClass = "mt-1 w-full rounded-lg border border-charcoal-200 px-3 py-2.5 text-sm focus-ring";
@@ -21,7 +21,7 @@ function SubmitButton() {
 }
 
 export function NewBranchForm({ businessId }: { businessId: string }) {
-  const [state, formAction] = useFormState(createBranchAction, initialState);
+  const [state, formAction] = useActionState(createBranchAction, initialState);
   const router = useRouter();
 
   useEffect(() => {

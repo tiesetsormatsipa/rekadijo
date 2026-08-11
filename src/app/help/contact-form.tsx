@@ -1,10 +1,10 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { submitContactRequestAction } from "@/server/actions/support";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
 
 const initialState: ActionResult | null = null;
 
@@ -18,7 +18,7 @@ function SubmitButton() {
 }
 
 export function ContactForm() {
-  const [state, formAction] = useFormState(submitContactRequestAction, initialState);
+  const [state, formAction] = useActionState(submitContactRequestAction, initialState);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { createCategoryAction } from "@/server/actions/menu";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ function SubmitButton() {
 }
 
 export function NewCategoryForm({ businessId }: { businessId: string }) {
-  const [state, formAction] = useFormState(createCategoryAction, initialState);
+  const [state, formAction] = useActionState(createCategoryAction, initialState);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">

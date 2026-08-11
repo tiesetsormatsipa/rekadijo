@@ -6,12 +6,13 @@ import { formatZAR } from "@/lib/utils";
 import { OrderStatusControl } from "../order-status-control";
 import { DriverDispatchPanel } from "./driver-dispatch-panel";
 
-export default async function VendorOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function VendorOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       buyer: true,
       branch: true,

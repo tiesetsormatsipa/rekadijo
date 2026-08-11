@@ -162,6 +162,7 @@ export function InstantOrderCart({
               <button
                 type="button"
                 onClick={() => updateQty(item.id, -1)}
+                aria-label={`Decrease ${item.name}`}
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
               >
                 <Minus className="h-3 w-3" />
@@ -170,6 +171,7 @@ export function InstantOrderCart({
               <button
                 type="button"
                 onClick={() => updateQty(item.id, 1)}
+                aria-label={`Increase ${item.name}`}
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
               >
                 <Plus className="h-3 w-3" />

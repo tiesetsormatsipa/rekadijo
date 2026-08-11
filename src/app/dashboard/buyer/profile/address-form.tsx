@@ -1,7 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
-import { useRef, useState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Navigation } from "lucide-react";
 import { addAddressAction } from "@/server/actions/buyer";
@@ -20,7 +20,7 @@ function SubmitButton() {
 }
 
 export function AddressForm() {
-  const [state, formAction] = useFormState(addAddressAction, initialState);
+  const [state, formAction] = useActionState(addAddressAction, initialState);
 
   // 1. Convert fields to explicit React state variables to enable cross-component syncing
   const [label, setLabel] = useState("");

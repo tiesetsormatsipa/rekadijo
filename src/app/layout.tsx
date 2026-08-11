@@ -44,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const addresses = user ? await prisma.buyerAddress.findMany({ where: { userId: user.id }, orderBy: { isDefault: "desc" } }) : [];
 
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="flex min-h-screen flex-col">
         <AddressProvider
           initialAddresses={addresses.map((a) => ({

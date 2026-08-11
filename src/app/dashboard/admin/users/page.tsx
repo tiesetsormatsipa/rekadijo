@@ -3,17 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { SuspendUserButton } from "./suspend-user-button";
 
-export default async function AdminUsersPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
 
   const users = await prisma.user.findMany({
-    where: searchParams.q
+    where: q
       ? {
           OR: [
-            { email: { contains: searchParams.q, mode: "insensitive" } },
-            { firstName: { contains: searchParams.q, mode: "insensitive" } },
-            { lastName: { contains: searchParams.q, mode: "insensitive" } }
+            { email: { contains: q, mode: "insensitive" } },
+            { firstName: { contains: q, mode: "insensitive" } },
+            { lastName: { contains: q, mode: "insensitive" } }
           ]
         }
       : undefined,
@@ -29,7 +30,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
         <input
           type="search"
           name="q"
-          defaultValue={searchParams.q}
+          defaultValue={q}
           placeholder="Search by name or email..."
           className="w-full max-w-sm rounded-full border border-charcoal-200 bg-white px-4 py-2.5 text-sm focus-ring"
         />

@@ -4,12 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { formatZAR } from "@/lib/utils";
 import { PrintButton } from "./print-button";
 
-export default async function ReceiptPage({ params }: { params: { id: string } }) {
+export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { business: true, branch: true, items: true, payments: true, buyer: true }
   });
   if (!order || order.buyerId !== user.id) notFound();

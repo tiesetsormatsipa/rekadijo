@@ -7,12 +7,13 @@ import { formatZAR } from "@/lib/utils";
 import { QuotationActions } from "./quotation-actions";
 import { MessageButton } from "@/components/message-button";
 
-export default async function BuyerQuotationPage({ params }: { params: { id: string } }) {
+export default async function BuyerQuotationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) notFound();
 
   const quotation = await prisma.quotation.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       business: true,
       branch: true,
