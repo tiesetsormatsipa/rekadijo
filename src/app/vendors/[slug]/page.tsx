@@ -1,14 +1,29 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { Star, MapPin, Clock } from "lucide-react";
+import { Star, MapPin, Clock, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { QuotationBuilder } from "@/components/quotation-builder";
 import { InstantOrderCart } from "@/components/instant-order-cart";
+import { VendorOrderPanel } from "@/components/vendor-order-panel";
 import { SaveVendorButton } from "@/components/save-vendor-button";
 import { ReviewsList } from "@/components/reviews-list";
 import { FavoriteItemButton } from "@/components/favorite-item-button";
 import { getCurrentUser } from "@/lib/auth";
 import { resolveOpenStatus, formatOpenStatus } from "@/lib/store-hours";
+
+const MENU_FALLBACK_IMAGES = [
+  "/uploads/00ff777a-46a0-4757-99d9-cd977e789ac6.jfif",
+  "/uploads/0016d500-167a-4ad2-86db-c2d4efa57c4c.jfif",
+  "/uploads/1fdcc778-2cb9-4f1c-a9e2-b0e43f3cd58c.jfif",
+  "/uploads/c1baedf7-f841-421a-8fdb-5d4e14782dc7.jfif",
+  "/uploads/dce150d7-c5aa-463e-b75e-ace5386524a1.jfif"
+];
+
+function fallbackImageFor(seed: string) {
+  const index = seed.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % MENU_FALLBACK_IMAGES.length;
+  return MENU_FALLBACK_IMAGES[index];
+}
 
 export default async function VendorDetailPage({
   params,
@@ -33,7 +48,7 @@ export default async function VendorDetailPage({
           items: {
             where: { isActive: true, deletedAt: null },
             orderBy: { sortOrder: "asc" },
-            include: { options: true, branchAvailability: true }
+            include: { options: true, branchAvailability: true, media: { orderBy: { sortOrder: "asc" }, take: 1 } }
           }
         }
       }
@@ -150,48 +165,75 @@ export default async function VendorDetailPage({
       {activeBranch && (
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
+            <div className="sticky top-16 z-20 -mx-4 mb-6 overflow-x-auto border-y border-charcoal-100 bg-cream-200/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:bg-white">
+              <div className="flex gap-2">
+                {business.menuCategories.map((category) => (
+                  <a
+                    key={category.id}
+                    href={`#category-${category.id}`}
+                    className="flex-none rounded-full border border-charcoal-200 bg-white px-4 py-2 text-sm font-semibold text-charcoal-700 transition hover:border-charcoal-900 hover:text-charcoal-900"
+                  >
+                    {category.name}
+                  </a>
+                ))}
+              </div>
+            </div>
             {business.menuCategories.map((category) => (
-              <div key={category.id} className="mb-8">
+              <div key={category.id} id={`category-${category.id}`} className="mb-10 scroll-mt-32">
                 <h3 className="font-display text-xl font-semibold text-charcoal-900">{category.name}</h3>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="mt-4 divide-y divide-charcoal-100 overflow-hidden rounded-2xl border border-charcoal-100 bg-white shadow-card">
                   {category.items.map((item) => {
                     const availability = item.branchAvailability.find((a) => a.branchId === activeBranch.id);
                     const isAvailable = availability?.isAvailable ?? true;
                     const isInstant = availability?.isInstantOrderable ?? item.allowInstantOrder;
+                    const imageUrl = item.media[0]?.url ?? fallbackImageFor(item.name);
                     return (
                       <div
                         key={item.id}
-                        className={`rounded-xl border p-4 ${
-                          isAvailable ? "border-charcoal-100 bg-white" : "border-charcoal-100 bg-charcoal-50 opacity-60"
-                        }`}
+                        className={`grid gap-4 p-4 sm:grid-cols-[112px_1fr] ${isAvailable ? "bg-white" : "bg-charcoal-50 opacity-60"}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium text-charcoal-900">{item.name}</p>
-                            {item.description && <p className="mt-0.5 text-xs text-charcoal-500">{item.description}</p>}
-                          </div>
-                          <div className="flex flex-none items-start gap-1">
-                            <p className="whitespace-nowrap font-semibold text-charcoal-900">
-                              R{Number(item.basePrice).toFixed(0)}
-                              {item.unitLabel && <span className="text-xs font-normal text-charcoal-400"> /{item.unitLabel}</span>}
-                            </p>
-                            {user && <FavoriteItemButton menuItemId={item.id} initiallyFavorited={favoriteIds.has(item.id)} />}
-                          </div>
+                        <div className="relative h-28 overflow-hidden rounded-xl bg-charcoal-100">
+                          <Image src={imageUrl} alt="" fill sizes="112px" className="object-cover" unoptimized />
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {!isAvailable && <Badge tone="danger">Unavailable at this branch</Badge>}
-                          {isAvailable && isInstant && <Badge tone="success">Instant order</Badge>}
-                          {isAvailable && item.allowQuotation && <Badge tone="info">Quotation</Badge>}
-                          {availability?.stockQuantity != null &&
-                            item.showStockToBuyer &&
-                            availability.stockQuantity <= (availability.lowStockThreshold ?? 5) && (
-                              <Badge tone="warning">Low stock</Badge>
-                            )}
-                          {item.dietaryTags.map((tag) => (
-                            <Badge key={tag} tone="neutral">
-                              {tag.replaceAll("_", " ").toLowerCase()}
-                            </Badge>
-                          ))}
+                        <div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-charcoal-900">{item.name}</p>
+                              {item.description && <p className="mt-1 text-sm text-charcoal-500">{item.description}</p>}
+                            </div>
+                            <div className="flex flex-none items-start gap-2">
+                              <p className="whitespace-nowrap font-semibold text-charcoal-900">
+                                R{Number(item.basePrice).toFixed(0)}
+                                {item.unitLabel && <span className="text-xs font-normal text-charcoal-400"> /{item.unitLabel}</span>}
+                              </p>
+                              {user && <FavoriteItemButton menuItemId={item.id} initiallyFavorited={favoriteIds.has(item.id)} />}
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {!isAvailable && <Badge tone="danger">Unavailable at this branch</Badge>}
+                            {isAvailable && isInstant && <Badge tone="success">Instant order</Badge>}
+                            {isAvailable && item.allowQuotation && <Badge tone="info">Quotation</Badge>}
+                            {availability?.stockQuantity != null &&
+                              item.showStockToBuyer &&
+                              availability.stockQuantity <= (availability.lowStockThreshold ?? 5) && (
+                                <Badge tone="warning">Low stock</Badge>
+                              )}
+                            {item.dietaryTags.map((tag) => (
+                              <Badge key={tag} tone="neutral">
+                                {tag.replaceAll("_", " ").toLowerCase()}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="mt-4 flex items-center justify-between gap-3">
+                            <span className="text-xs text-charcoal-400">Use the order panel to add quantities.</span>
+                            <a
+                              href="#order-panel"
+                              className="inline-flex items-center gap-1 rounded-full bg-charcoal-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-charcoal-700"
+                            >
+                              <ShoppingBag className="h-3.5 w-3.5" />
+                              Add
+                            </a>
+                          </div>
                         </div>
                       </div>
                     );
@@ -201,60 +243,68 @@ export default async function VendorDetailPage({
             ))}
           </div>
 
-          <div className="lg:col-span-1 space-y-6">
-            {activeBranch.acceptsInstantOrders && (
-              <InstantOrderCart
-                businessId={business.id}
-                branchId={activeBranch.id}
-                branchLat={Number(activeBranch.latitude)}
-                branchLng={Number(activeBranch.longitude)}
-                deliveryRadiusKm={activeBranch.deliveryRadiusKm != null ? Number(activeBranch.deliveryRadiusKm) : null}
-                fulfillmentType={activeBranch.fulfillmentType}
-                isOpen={resolveOpenStatus(activeBranch.operatingHours).isOpen}
-                items={business.menuCategories.flatMap((cat) =>
-                  cat.items
-                    .filter((item) => {
-                      const availability = item.branchAvailability.find((a) => a.branchId === activeBranch.id);
-                      const isAvailable = availability?.isAvailable ?? true;
-                      const isInstant = availability?.isInstantOrderable ?? item.allowInstantOrder;
-                      return isAvailable && isInstant;
-                    })
-                    .map((item) => ({
-                      id: item.id,
-                      name: item.name,
-                      basePrice: Number(item.basePrice),
-                      unitLabel: item.unitLabel,
-                      options: item.options.map((o) => ({ choiceLabel: o.choiceLabel, priceDelta: Number(o.priceDelta) }))
-                    }))
-                )}
-              />
-            )}
-
-            <QuotationBuilder
-              businessId={business.id}
-              branchId={activeBranch.id}
-              branchLat={Number(activeBranch.latitude)}
-              branchLng={Number(activeBranch.longitude)}
-              deliveryRadiusKm={activeBranch.deliveryRadiusKm != null ? Number(activeBranch.deliveryRadiusKm) : null}
-              fulfillmentType={activeBranch.fulfillmentType}
-              menuCategories={business.menuCategories.map((cat) => ({
-                id: cat.id,
-                name: cat.name,
-                items: cat.items
-                  .filter((item) => {
-                    const availability = item.branchAvailability.find((a) => a.branchId === activeBranch.id);
-                    return availability?.isAvailable ?? true;
-                  })
-                  .map((item) => ({
-                    id: item.id,
-                    name: item.name,
-                    basePrice: Number(item.basePrice),
-                    unitLabel: item.unitLabel,
-                    minQuantity: item.minQuantity,
-                    maxQuantity: item.maxQuantity,
-                    options: item.options.map((o) => ({ choiceLabel: o.choiceLabel, priceDelta: Number(o.priceDelta) }))
-                  }))
-              }))}
+          <div className="lg:col-span-1">
+            <VendorOrderPanel
+              hasInstant={activeBranch.acceptsInstantOrders}
+              instant={
+                activeBranch.acceptsInstantOrders ? (
+                  <InstantOrderCart
+                    businessId={business.id}
+                    branchId={activeBranch.id}
+                    branchLat={Number(activeBranch.latitude)}
+                    branchLng={Number(activeBranch.longitude)}
+                    deliveryRadiusKm={activeBranch.deliveryRadiusKm != null ? Number(activeBranch.deliveryRadiusKm) : null}
+                    fulfillmentType={activeBranch.fulfillmentType}
+                    isOpen={resolveOpenStatus(activeBranch.operatingHours).isOpen}
+                    items={business.menuCategories.flatMap((cat) =>
+                      cat.items
+                        .filter((item) => {
+                          const availability = item.branchAvailability.find((a) => a.branchId === activeBranch.id);
+                          const isAvailable = availability?.isAvailable ?? true;
+                          const isInstant = availability?.isInstantOrderable ?? item.allowInstantOrder;
+                          return isAvailable && isInstant;
+                        })
+                        .map((item) => ({
+                          id: item.id,
+                          name: item.name,
+                          basePrice: Number(item.basePrice),
+                          unitLabel: item.unitLabel,
+                          imageUrl: item.media[0]?.url ?? fallbackImageFor(item.name),
+                          options: item.options.map((o) => ({ choiceLabel: o.choiceLabel, priceDelta: Number(o.priceDelta) }))
+                        }))
+                    )}
+                  />
+                ) : null
+              }
+              quotation={
+                <QuotationBuilder
+                  businessId={business.id}
+                  branchId={activeBranch.id}
+                  branchLat={Number(activeBranch.latitude)}
+                  branchLng={Number(activeBranch.longitude)}
+                  deliveryRadiusKm={activeBranch.deliveryRadiusKm != null ? Number(activeBranch.deliveryRadiusKm) : null}
+                  fulfillmentType={activeBranch.fulfillmentType}
+                  menuCategories={business.menuCategories.map((cat) => ({
+                    id: cat.id,
+                    name: cat.name,
+                    items: cat.items
+                      .filter((item) => {
+                        const availability = item.branchAvailability.find((a) => a.branchId === activeBranch.id);
+                        return availability?.isAvailable ?? true;
+                      })
+                      .map((item) => ({
+                        id: item.id,
+                        name: item.name,
+                        basePrice: Number(item.basePrice),
+                        unitLabel: item.unitLabel,
+                        minQuantity: item.minQuantity,
+                        maxQuantity: item.maxQuantity,
+                        imageUrl: item.media[0]?.url ?? fallbackImageFor(item.name),
+                        options: item.options.map((o) => ({ choiceLabel: o.choiceLabel, priceDelta: Number(o.priceDelta) }))
+                      }))
+                  }))}
+                />
+              }
             />
           </div>
         </div>

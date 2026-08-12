@@ -10,6 +10,7 @@ export type BranchListing = {
   avgRating: number;
   reviewCount: number;
   orderingMode: OrderingMode;
+  imageUrl: string | null;
   branch: {
     name: string;
     city: string;
@@ -30,6 +31,8 @@ type BusinessWithBranches = {
   avgRating: unknown;
   reviewCount: number;
   orderingMode: OrderingMode;
+  coverImageUrl?: string | null;
+  logoUrl?: string | null;
   branches: Array<{
     id: string;
     name: string;
@@ -56,6 +59,7 @@ export function createBranchListings<TBusiness extends BusinessWithBranches>(
       avgRating: Number(business.avgRating ?? 0),
       reviewCount: business.reviewCount,
       orderingMode: business.orderingMode,
+      imageUrl: business.coverImageUrl ?? business.logoUrl ?? null,
       branch: {
         name: branch.name,
         city: branch.city,

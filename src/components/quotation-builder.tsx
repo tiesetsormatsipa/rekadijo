@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, Send } from "lucide-react";
@@ -19,6 +20,7 @@ type MenuItemLite = {
   minQuantity: number;
   maxQuantity: number | null;
   options: Array<{ choiceLabel: string; priceDelta: number }>;
+  imageUrl?: string | null;
 };
 
 type CategoryLite = { id: string; name: string; items: MenuItemLite[] };
@@ -122,23 +124,30 @@ export function QuotationBuilder({
   }
 
   return (
-    <div className="sticky top-24 rounded-2xl border border-charcoal-100 bg-white p-5 shadow-card">
-      <h3 className="font-display text-lg font-semibold text-charcoal-900">Build your quotation request</h3>
+    <div className="rounded-2xl border border-charcoal-100 bg-white p-5 shadow-card">
+      <h3 className="font-display text-lg font-semibold text-charcoal-900">Build a quotation</h3>
       <p className="mt-1 text-xs text-charcoal-500">
-        Choose items and quantities, then tell us about your event. The vendor will send back a real quotation.
+        Add items, date, notes, and delivery details. The vendor replies with confirmed pricing.
       </p>
 
       <div className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1">
         {allItems.map((item) => {
           const qty = cart[item.id]?.quantity ?? 0;
           return (
-            <div key={item.id} className="flex items-center justify-between gap-2 border-b border-charcoal-50 pb-3">
-              <div className="min-w-0">
+            <div key={item.id} className="flex items-center justify-between gap-3 border-b border-charcoal-50 pb-3">
+              <div className="flex min-w-0 items-center gap-3">
+                {item.imageUrl && (
+                  <span className="relative h-11 w-11 flex-none overflow-hidden rounded-lg bg-charcoal-100">
+                    <Image src={item.imageUrl} alt="" fill sizes="44px" className="object-cover" unoptimized />
+                  </span>
+                )}
+                <span className="min-w-0">
                 <p className="truncate text-sm font-medium text-charcoal-800">{item.name}</p>
                 <p className="text-xs text-charcoal-400">
                   {formatZAR(item.basePrice)}
                   {item.unitLabel ? ` / ${item.unitLabel}` : ""}
                 </p>
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button

@@ -76,8 +76,22 @@ export async function createMenuItemAction(_prev: ActionResult | null, formData:
   const user = await requireMenuEditAccess(parsed.data.businessId);
   if (!user) return { ok: false, error: "Not authorized." };
 
+  const file = formData.get("file") as File | null;
+  let uploadedMedia: { url: string; type: "IMAGE" | "GIF" | "VIDEO" } | null = null;
+  if (file && file.size > 0) {
+    try {
+      const { url } = await saveFile(file);
+      uploadedMedia = {
+        url,
+        type: file.type.startsWith("video") ? "VIDEO" : file.type === "image/gif" ? "GIF" : "IMAGE"
+      };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Upload failed." };
+    }
+  }
+
   const count = await prisma.menuItem.count({ where: { categoryId: parsed.data.categoryId } });
-  await prisma.menuItem.create({
+  const item = await prisma.menuItem.create({
     data: {
       businessId: parsed.data.businessId,
       categoryId: parsed.data.categoryId,
@@ -94,6 +108,18 @@ export async function createMenuItemAction(_prev: ActionResult | null, formData:
       sortOrder: count
     }
   });
+
+  if (uploadedMedia) {
+    await prisma.media.create({
+      data: {
+        type: uploadedMedia.type,
+        url: uploadedMedia.url,
+        ownerType: "MENU_ITEM",
+        menuItemId: item.id,
+        businessId: item.businessId
+      }
+    });
+  }
 
   revalidatePath("/dashboard/vendor/menu");
   return { ok: true };

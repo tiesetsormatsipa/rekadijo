@@ -257,6 +257,11 @@ export function AddressSelector({
       {!isGlobalHeader && !selected && (
         <p className="mt-1.5 text-xs text-charcoal-400">Choose an address so we can confirm delivery is available.</p>
       )}
+      {!isGlobalHeader && selected && addresses.length > 0 && (
+        <p className="mt-1.5 text-xs text-charcoal-400">
+          Reusing your saved address profile. Open the selector to switch or manage addresses.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, Zap, Tag, Clock } from "lucide-react";
@@ -18,6 +19,7 @@ type ItemLite = {
   basePrice: number;
   unitLabel: string | null;
   options: Array<{ choiceLabel: string; priceDelta: number }>;
+  imageUrl?: string | null;
 };
 
 export function InstantOrderCart({
@@ -136,11 +138,11 @@ export function InstantOrderCart({
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-olive-200 bg-olive-50 p-5">
-      <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-olive-900">
+    <div className="rounded-2xl border border-charcoal-100 bg-white p-5 shadow-card">
+      <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-charcoal-900">
         <Zap className="h-4 w-4" /> Order now
       </h3>
-      <p className="mt-1 text-xs text-olive-700">These items are available for instant order at this branch.</p>
+      <p className="mt-1 text-xs text-charcoal-500">These items are available for instant checkout at this branch.</p>
 
       {!isOpen && (
         <div className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
@@ -148,15 +150,22 @@ export function InstantOrderCart({
         </div>
       )}
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-2 border-b border-olive-100 pb-3 text-sm">
-            <div>
-              <p className="font-medium text-charcoal-800">{item.name}</p>
-              <p className="text-xs text-charcoal-500">
-                {formatZAR(item.basePrice)}
-                {item.unitLabel ? ` / ${item.unitLabel}` : ""}
-              </p>
+          <div key={item.id} className="flex items-center justify-between gap-3 border-b border-charcoal-100 pb-3 text-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              {item.imageUrl && (
+                <span className="relative h-11 w-11 flex-none overflow-hidden rounded-lg bg-charcoal-100">
+                  <Image src={item.imageUrl} alt="" fill sizes="44px" className="object-cover" unoptimized />
+                </span>
+              )}
+              <span className="min-w-0">
+                <p className="truncate font-medium text-charcoal-800">{item.name}</p>
+                <p className="text-xs text-charcoal-500">
+                  {formatZAR(item.basePrice)}
+                  {item.unitLabel ? ` / ${item.unitLabel}` : ""}
+                </p>
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -189,7 +198,7 @@ export function InstantOrderCart({
               type="button"
               onClick={() => setFulfillment(f)}
               className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold ${
-                fulfillment === f ? "border-olive-600 bg-white text-olive-800" : "border-olive-200 text-olive-700"
+                fulfillment === f ? "border-charcoal-900 bg-charcoal-900 text-white" : "border-charcoal-200 text-charcoal-600"
               }`}
             >
               {f === "PICKUP" ? "Pickup" : "Delivery"}
@@ -211,7 +220,7 @@ export function InstantOrderCart({
 
       {/* ASAP vs schedule for later */}
       <div className="mt-4">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-olive-800">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-700">
           <Clock className="h-3.5 w-3.5" /> When
         </p>
         <div className="mt-1.5 flex gap-2">
@@ -220,7 +229,7 @@ export function InstantOrderCart({
             disabled={!isOpen}
             onClick={() => setIsAsap(true)}
             className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40 ${
-              isAsap ? "border-olive-600 bg-white text-olive-800" : "border-olive-200 text-olive-700"
+              isAsap ? "border-charcoal-900 bg-charcoal-900 text-white" : "border-charcoal-200 text-charcoal-600"
             }`}
           >
             ASAP
@@ -229,7 +238,7 @@ export function InstantOrderCart({
             type="button"
             onClick={() => setIsAsap(false)}
             className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold ${
-              !isAsap ? "border-olive-600 bg-white text-olive-800" : "border-olive-200 text-olive-700"
+              !isAsap ? "border-charcoal-900 bg-charcoal-900 text-white" : "border-charcoal-200 text-charcoal-600"
             }`}
           >
             Schedule for later
@@ -240,19 +249,19 @@ export function InstantOrderCart({
             type="datetime-local"
             value={scheduledFor}
             onChange={(e) => setScheduledFor(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-olive-200 px-3 py-2 text-sm focus-ring"
+            className="mt-2 w-full rounded-lg border border-charcoal-200 px-3 py-2 text-sm focus-ring"
           />
         )}
       </div>
 
       {/* Promo code */}
       <div className="mt-4">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-olive-800">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-700">
           <Tag className="h-3.5 w-3.5" /> Promo code
         </p>
         {appliedPromo ? (
-          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
-            <span className="font-medium text-olive-800">{appliedPromo.code} — {appliedPromo.label}</span>
+          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-charcoal-50 px-3 py-2 text-xs">
+            <span className="font-medium text-charcoal-800">{appliedPromo.code} — {appliedPromo.label}</span>
             <button onClick={() => setAppliedPromo(null)} className="text-charcoal-400 hover:text-red-600">
               Remove
             </button>
@@ -263,7 +272,7 @@ export function InstantOrderCart({
               value={promoInput}
               onChange={(e) => setPromoInput(e.target.value)}
               placeholder="Enter code"
-              className="flex-1 rounded-lg border border-olive-200 px-3 py-2 text-sm focus-ring"
+              className="flex-1 rounded-lg border border-charcoal-200 px-3 py-2 text-sm focus-ring"
             />
             <Button size="sm" variant="outline" onClick={applyPromo} disabled={validatingPromo}>
               {validatingPromo ? "Checking..." : "Apply"}
@@ -274,7 +283,7 @@ export function InstantOrderCart({
 
       {/* Tip */}
       <div className="mt-4">
-        <p className="text-xs font-semibold text-olive-800">Tip {fulfillment === "DELIVERY" ? "your driver" : "the vendor"}</p>
+        <p className="text-xs font-semibold text-charcoal-700">Tip {fulfillment === "DELIVERY" ? "your driver" : "the vendor"}</p>
         <div className="mt-1.5 flex gap-2">
           {TIP_PRESETS_PERCENT.map((p) => (
             <button
@@ -285,7 +294,7 @@ export function InstantOrderCart({
                 setCustomTip("");
               }}
               className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${
-                tipPercent === p && !customTip ? "border-olive-600 bg-white text-olive-800" : "border-olive-200 text-olive-700"
+                tipPercent === p && !customTip ? "border-charcoal-900 bg-charcoal-900 text-white" : "border-charcoal-200 text-charcoal-600"
               }`}
             >
               {p === 0 ? "No tip" : `${p}%`}
@@ -301,34 +310,34 @@ export function InstantOrderCart({
           type="number"
           min={0}
           placeholder="Custom amount (R)"
-          className="mt-2 w-full rounded-lg border border-olive-200 px-3 py-2 text-sm focus-ring"
+          className="mt-2 w-full rounded-lg border border-charcoal-200 px-3 py-2 text-sm focus-ring"
         />
       </div>
 
-      <div className="mt-4 space-y-1 border-t border-olive-100 pt-3 text-sm">
-        <div className="flex justify-between text-olive-700">
+      <div className="mt-4 space-y-1 border-t border-charcoal-100 pt-3 text-sm">
+        <div className="flex justify-between text-charcoal-600">
           <span>Subtotal</span>
           <span>{formatZAR(subtotal)}</span>
         </div>
         {discountAmount > 0 && (
-          <div className="flex justify-between text-olive-700">
+          <div className="flex justify-between text-charcoal-600">
             <span>Discount</span>
             <span>-{formatZAR(discountAmount)}</span>
           </div>
         )}
         {deliveryFee > 0 && (
-          <div className="flex justify-between text-olive-700">
+          <div className="flex justify-between text-charcoal-600">
             <span>Delivery fee</span>
             <span>{formatZAR(deliveryFee)}</span>
           </div>
         )}
         {tipAmount > 0 && (
-          <div className="flex justify-between text-olive-700">
+          <div className="flex justify-between text-charcoal-600">
             <span>Tip</span>
             <span>{formatZAR(tipAmount)}</span>
           </div>
         )}
-        <div className="flex items-center justify-between pt-1 text-base font-semibold text-olive-900">
+        <div className="flex items-center justify-between pt-1 text-base font-semibold text-charcoal-900">
           <span>Total</span>
           <span className="font-display text-lg">{formatZAR(total)}</span>
         </div>

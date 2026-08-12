@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { VendorCard } from "@/components/vendor-card";
 import { CategoryRow } from "@/components/category-row";
-import { SearchBar } from "@/components/search-bar";
+import { SearchBar, type SearchSuggestion } from "@/components/search-bar";
 import type { Prisma } from "@prisma/client";
 import { createBranchListings } from "@/lib/branch-listings";
 
@@ -16,6 +16,7 @@ export default async function SearchPage({
   const q = rawQuery?.trim() ?? "";
 
   let businesses: Awaited<ReturnType<typeof runSearch>> = [];
+  const suggestions = await getSearchSuggestions();
   if (q) {
     businesses = await runSearch(q, mode, sort);
   }
@@ -26,7 +27,7 @@ export default async function SearchPage({
       <p className="mt-1 text-charcoal-500">Search for a dish — we&apos;ll show you every vendor who sells it.</p>
 
       <div className="mt-5 max-w-xl">
-        <SearchBar initialQuery={q} />
+        <SearchBar initialQuery={q} suggestions={suggestions} showSuggestions />
       </div>
 
       <div className="mt-6">
@@ -90,6 +91,49 @@ export default async function SearchPage({
       )}
     </div>
   );
+}
+
+async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
+  const [items, businesses] = await Promise.all([
+    prisma.menuItem.findMany({
+      where: { isActive: true, deletedAt: null, business: { status: "APPROVED", deletedAt: null } },
+      include: {
+        category: { select: { name: true } },
+        business: { select: { name: true } }
+      },
+      orderBy: [{ allowInstantOrder: "desc" }, { createdAt: "desc" }],
+      take: 20
+    }),
+    prisma.business.findMany({
+      where: { status: "APPROVED", deletedAt: null },
+      select: { name: true, slug: true, category: true },
+      orderBy: { avgRating: "desc" },
+      take: 12
+    })
+  ]);
+
+  const categorySuggestions = Array.from(new Set(businesses.map((business) => business.category))).map((category) => ({
+    label: category,
+    href: `/vendors?category=${encodeURIComponent(category)}`,
+    eyebrow: "Business type",
+    type: "category" as const
+  }));
+
+  return [
+    ...items.map((item) => ({
+      label: item.name,
+      href: `/search?q=${encodeURIComponent(item.name)}`,
+      eyebrow: `${item.category.name} at ${item.business.name}`,
+      type: "item" as const
+    })),
+    ...businesses.map((business) => ({
+      label: business.name,
+      href: `/vendors/${business.slug}`,
+      eyebrow: business.category,
+      type: "vendor" as const
+    })),
+    ...categorySuggestions
+  ];
 }
 
 async function runSearch(q: string, mode?: string, sort?: string) {

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { ImagePlus } from "lucide-react";
 import { createMenuItemAction } from "@/server/actions/menu";
 import type { ActionResult } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -19,9 +21,10 @@ function SubmitButton() {
 
 export function NewItemForm({ businessId, categories }: { businessId: string; categories: Array<{ id: string; name: string }> }) {
   const [state, formAction] = useActionState(createMenuItemAction, initialState);
+  const [fileName, setFileName] = useState("");
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} encType="multipart/form-data" className="space-y-3">
       <p className="text-sm font-semibold text-charcoal-800">Add a menu item</p>
       <input type="hidden" name="businessId" value={businessId} />
 
@@ -46,6 +49,25 @@ export function NewItemForm({ businessId, categories }: { businessId: string; ca
         <label className="block text-xs font-medium text-charcoal-600">Description</label>
         <textarea name="description" rows={2} className="mt-1 w-full rounded-lg border border-charcoal-200 px-3 py-2 text-sm focus-ring" />
       </div>
+
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-charcoal-200 bg-charcoal-50 p-4 text-sm text-charcoal-600 transition hover:border-amber-400 hover:bg-amber-50/50">
+        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-white text-amber-600 shadow-sm">
+          <ImagePlus className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-charcoal-800">Upload product image</span>
+          <span className="block truncate text-xs text-charcoal-500">
+            {fileName || "JPG, PNG, WebP, GIF, or MP4. Vendors can replace it later."}
+          </span>
+        </span>
+        <input
+          name="file"
+          type="file"
+          accept="image/*,video/mp4"
+          className="sr-only"
+          onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
+        />
+      </label>
 
       <div className="grid grid-cols-4 gap-3">
         <div>

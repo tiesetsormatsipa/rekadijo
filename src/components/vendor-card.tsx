@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Bike, FileText, MapPin, Navigation, ShoppingBag, Star, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { BranchListing } from "@/lib/branch-listings";
@@ -11,8 +12,21 @@ type BusinessCardData = Omit<Partial<BranchListing>, "avgRating" | "branches" | 
   avgRating: unknown;
   reviewCount: number;
   orderingMode: "QUOTATION_ONLY" | "INSTANT_ONLY" | "BOTH";
+  imageUrl?: string | null;
   branches: Array<{ city: string; suburb: string | null }>;
 };
+
+const FALLBACK_IMAGES = [
+  "/uploads/00ff777a-46a0-4757-99d9-cd977e789ac6.jfif",
+  "/uploads/0016d500-167a-4ad2-86db-c2d4efa57c4c.jfif",
+  "/uploads/1fdcc778-2cb9-4f1c-a9e2-b0e43f3cd58c.jfif",
+  "/uploads/c1baedf7-f841-421a-8fdb-5d4e14782dc7.jfif"
+];
+
+function fallbackImageFor(id: string) {
+  const index = id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % FALLBACK_IMAGES.length;
+  return FALLBACK_IMAGES[index];
+}
 
 export function VendorCard({ business }: { business: BusinessCardData }) {
   const branch = business.branch ?? business.branches[0];
@@ -20,14 +34,23 @@ export function VendorCard({ business }: { business: BusinessCardData }) {
   const href = business.branchId ? `/vendors/${business.slug}?branch=${business.branchId}` : `/vendors/${business.slug}`;
   const locationLabel = branch ? [branch.suburb, branch.city].filter(Boolean).join(", ") : null;
   const branchName = business.branch?.name ?? locationLabel;
+  const imageUrl = business.imageUrl ?? fallbackImageFor(business.id);
 
   return (
     <Link
       href={href}
       className="group flex flex-col overflow-hidden rounded-2xl border border-charcoal-100 bg-white shadow-card transition hover:-translate-y-0.5 hover:shadow-cardHover"
     >
-      <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-amber-100 via-cream-200 to-olive-100 text-charcoal-300">
-        <span className="font-display text-3xl text-charcoal-500">{business.name.charAt(0)}</span>
+      <div className="relative h-36 overflow-hidden bg-charcoal-100">
+        <Image
+          src={imageUrl}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+          className="object-cover transition duration-300 group-hover:scale-105"
+          unoptimized
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/35 to-transparent" />
         {business.distanceKm != null && (
           <span className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2 py-1 text-xs font-semibold text-charcoal-700 shadow-sm">
             {business.distanceKm.toFixed(1)} km
