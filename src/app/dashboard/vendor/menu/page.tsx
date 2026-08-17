@@ -47,6 +47,8 @@ export default async function VendorMenuPage() {
               {category.items.map((item) => (
                 <MenuItemRow
                   key={item.id}
+                  businessId={business.id}
+                  categories={business.menuCategories.map((c) => ({ id: c.id, name: c.name }))}
                   item={{
                     id: item.id,
                     name: item.name,
@@ -55,7 +57,15 @@ export default async function VendorMenuPage() {
                     allowQuotation: item.allowQuotation,
                     showStockToBuyer: item.showStockToBuyer,
                     isActive: item.isActive,
-                    mediaUrl: item.media[0]?.url ?? null
+                    mediaUrl: item.media[0]?.url ?? null,
+                    description: item.description,
+                    categoryId: item.categoryId,
+                    basePrice: item.basePrice,
+                    unitLabel: item.unitLabel,
+                    minQuantity: item.minQuantity,
+                    maxQuantity: item.maxQuantity,
+                    dietaryTags: item.dietaryTags,
+                    mediaId: item.media[0]?.id ?? null
                   }}
                 />
               ))}

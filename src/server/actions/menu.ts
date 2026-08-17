@@ -148,6 +148,70 @@ export async function deleteMenuItemAction(menuItemId: string) {
   return { ok: true as const };
 }
 
+export async function updateMenuItemAction(menuItemId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const item = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
+  if (!item) return { ok: false, error: "Item not found." };
+
+  const raw = Object.fromEntries(formData);
+  const parsed = itemSchema.safeParse({
+    businessId: item.businessId,
+    ...raw,
+    categoryId: raw.categoryId || item.categoryId,
+    allowInstantOrder: formData.get("allowInstantOrder") === "on",
+    allowQuotation: formData.get("allowQuotation") === "on",
+    showStockToBuyer: formData.get("showStockToBuyer") === "on",
+    dietaryTags: formData.getAll("dietaryTags")
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the form." };
+
+  const user = await requireMenuEditAccess(item.businessId);
+  if (!user) return { ok: false, error: "Not authorized." };
+
+  // Handle new file upload if provided
+  const file = formData.get("file") as File | null;
+  if (file && file.size > 0) {
+    try {
+      const { url } = await saveFile(file);
+      const type = file.type.startsWith("video") ? "VIDEO" : file.type === "image/gif" ? "GIF" : "IMAGE";
+      // Delete old media first
+      await prisma.media.deleteMany({ where: { menuItemId, ownerType: "MENU_ITEM" } });
+      // Create new media
+      await prisma.media.create({
+        data: {
+          type,
+          url,
+          ownerType: "MENU_ITEM",
+          menuItemId,
+          businessId: item.businessId
+        }
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Upload failed." };
+    }
+  }
+
+  // Update item
+  await prisma.menuItem.update({
+    where: { id: menuItemId },
+    data: {
+      categoryId: parsed.data.categoryId,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      basePrice: parsed.data.basePrice,
+      unitLabel: parsed.data.unitLabel,
+      minQuantity: parsed.data.minQuantity,
+      maxQuantity: parsed.data.maxQuantity,
+      allowInstantOrder: parsed.data.allowInstantOrder ?? false,
+      allowQuotation: parsed.data.allowQuotation ?? true,
+      showStockToBuyer: parsed.data.showStockToBuyer ?? false,
+      dietaryTags: parsed.data.dietaryTags ?? []
+    }
+  });
+
+  revalidatePath("/dashboard/vendor/menu");
+  return { ok: true };
+}
+
 export async function uploadMenuItemMediaAction(menuItemId: string, formData: FormData) {
   const item = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
   if (!item) return { ok: false as const, error: "Item not found." };

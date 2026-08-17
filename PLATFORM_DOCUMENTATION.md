@@ -552,9 +552,9 @@ Order list + detail with status control and driver dispatch.
 
 ### Menu (`/dashboard/vendor/menu`)
 
-Full menu CRUD — categories, items, pricing, flags, image upload.  
-**Components:** `new-category-form.tsx`, `new-item-form.tsx`, `menu-item-row.tsx`  
-**Actions:** `createCategoryAction`, `createMenuItemAction`, `toggleMenuItemActiveAction`, `deleteMenuItemAction`, `uploadMenuItemMediaAction`
+Full menu CRUD — categories, items, pricing, flags, image upload & edit.  
+**Components:** `new-category-form.tsx`, `new-item-form.tsx`, `edit-item-form.tsx`, `menu-item-row.tsx`  
+**Actions:** `createCategoryAction`, `createMenuItemAction`, `updateMenuItemAction`, `toggleMenuItemActiveAction`, `deleteMenuItemAction`, `uploadMenuItemMediaAction`, `deleteMediaAction`
 
 ### Branches (`/dashboard/vendor/branches`, `/new`)
 

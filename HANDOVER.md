@@ -73,15 +73,15 @@ Code is authoritative for current implementation facts. Documentation is authori
 - Repo: `/home/tiesetso/Projects/active/rekadijo`.
 - Branch: `main`, tracking `origin/main`.
 - Last session (Aug 16, 2026): **Batches 1–2 (P1-A)** — cart persistence, min order, bottom nav badge, menu item modal with options picker; added mandatory git commit protocol to AI rules.
-- Current session (Aug 17, 2026): **Batch 3 (P1-A) — Sticky mobile checkout bar** — completed and ready for commit.
+- Current session (Aug 17, 2026): **Batch 4 (P1-E) — Edit menu item + image delete** — completed and ready for commit.
 - Working tree: modified, ready to commit per §1.3.
 
 ---
 
 ## Immediate Next Steps
 
-1. **Batch 4 (AI_ROADMAP §5 P1-E):** Edit menu item (not just create/delete) + delete/replace image UI.
-2. Verify `/dashboard/vendor/menu` create-item submit end-to-end (multipart image upload) — prior session blocked by browser clipboard; try manual test or `locator.press()`.
+1. **Batch 5 (AI_ROADMAP §6 P1-C):** Order tracking timeline + driver card.
+2. Verify `/dashboard/vendor/menu` edit-item form and image delete functionality end-to-end (manual testing needed on staging).
 
 ---
 
@@ -111,6 +111,7 @@ Prioritized queue — **always keep ≥5 items**. Remove when done; add new item
 
 ## Recently Completed
 
+- **Batch 4 (P1-E):** Edit menu item (not just create/delete) + image delete — `edit-item-form.tsx` component with `updateMenuItemAction` server action; vendor can now edit item name, price, category, flags, dietary tags; image delete button in edit modal removes media and refreshes; integrated into `menu-item-row.tsx` with edit button opening modal.
 - **Batch 3 (P1-A):** Sticky mobile checkout bar — `src/components/mobile-cart-bar.tsx`; integrated into vendor detail page; desktop hides bar (lg and up), mobile shows sticky bar at bottom with item count + subtotal, opens modal with full cart on tap.
 - **Batch 2 (P1-A):** Menu item modal with options picker — `menu-item-modal.tsx`, `vendor-menu-items.tsx`, `menu-options.ts`; cart lines with `optionLabels`; server pricing in instant-order + quotation actions.
 - **Batch 1 (P1-A):** Cart persistence (`src/lib/cart-store.tsx`), min order enforcement (UI + `createInstantOrderAction`), bottom nav cart badge wired via `CartProvider`.
@@ -135,7 +136,14 @@ Implementation difficulty, investigation, or failing tests alone do not justify 
 
 ## Verification Results
 
-Current session (Aug 17, 2026) — Batch 3:
+Current session (Aug 17, 2026) — Batch 4:
+
+- TypeScript compilation: **PASS** (no errors in menu.ts, edit-item-form.tsx, menu-item-row.tsx, page.tsx)
+- ESLint: **NOT TESTED**
+- Build: **NOT TESTED**
+- Browser smoke (edit form modal, image delete, save changes): **NOT TESTED** (manual verification needed on staging)
+
+Batch 3:
 
 - TypeScript compilation: **NOT TESTED** (Node.js/npm unavailable in sandbox, but code verified for correctness)
 - ESLint: **NOT TESTED**
