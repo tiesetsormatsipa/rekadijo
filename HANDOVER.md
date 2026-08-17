@@ -73,15 +73,15 @@ Code is authoritative for current implementation facts. Documentation is authori
 - Repo: `/home/tiesetso/Projects/active/rekadijo`.
 - Branch: `main`, tracking `origin/main`.
 - Last session (Aug 16, 2026): **Batches 1–2 (P1-A)** — cart persistence, min order, bottom nav badge, menu item modal with options picker; added mandatory git commit protocol to AI rules.
-- Current session (Aug 17, 2026): **Batch 4 (P1-E) — Edit menu item + image delete** — completed and ready for commit.
+- Current session (Aug 17, 2026): **Batches 3–5 (P1-A → P1-C)** — sticky mobile checkout bar, edit menu item + image delete, order tracking timeline + driver card + ETA.
 - Working tree: modified, ready to commit per §1.3.
 
 ---
 
 ## Immediate Next Steps
 
-1. **Batch 5 (AI_ROADMAP §6 P1-C):** Order tracking timeline + driver card.
-2. Verify `/dashboard/vendor/menu` edit-item form and image delete functionality end-to-end (manual testing needed on staging).
+1. **Batch 6 (AI_ROADMAP §7 P1-D):** Quotation revision comparison UI (side-by-side diff view).
+2. Verify `/dashboard/buyer/orders/[id]` order tracking page end-to-end (timeline, driver card, location polling).
 
 ---
 
@@ -111,6 +111,7 @@ Prioritized queue — **always keep ≥5 items**. Remove when done; add new item
 
 ## Recently Completed
 
+- **Batch 5 (P1-C):** Order tracking UX — `order-timeline.tsx` component with visual stepper (Paid → Preparing → Ready → Out for Delivery → Delivered); `driver-card.tsx` component with driver info, vehicle details, and live location polling (30s interval); ETA calculation via `estimateDeliveryMinutes` in geo.ts; buyer order page enhanced with timeline, driver card, ETA display, and driver location API endpoint.
 - **Batch 4 (P1-E):** Edit menu item (not just create/delete) + image delete — `edit-item-form.tsx` component with `updateMenuItemAction` server action; vendor can now edit item name, price, category, flags, dietary tags; image delete button in edit modal removes media and refreshes; integrated into `menu-item-row.tsx` with edit button opening modal.
 - **Batch 3 (P1-A):** Sticky mobile checkout bar — `src/components/mobile-cart-bar.tsx`; integrated into vendor detail page; desktop hides bar (lg and up), mobile shows sticky bar at bottom with item count + subtotal, opens modal with full cart on tap.
 - **Batch 2 (P1-A):** Menu item modal with options picker — `menu-item-modal.tsx`, `vendor-menu-items.tsx`, `menu-options.ts`; cart lines with `optionLabels`; server pricing in instant-order + quotation actions.
@@ -136,15 +137,21 @@ Implementation difficulty, investigation, or failing tests alone do not justify 
 
 ## Verification Results
 
-Current session (Aug 17, 2026) — Batch 4:
+Current session (Aug 17, 2026) — Batches 3–5:
 
+Batch 5 (P1-C):
+- TypeScript compilation: **PASS** (no errors in order-timeline.tsx, driver-card.tsx, geo.ts, order page, API route)
+- ESLint: **NOT TESTED**
+- Build: **NOT TESTED**
+- Browser smoke (timeline steps, driver card, location polling): **NOT TESTED** (manual verification needed on staging)
+
+Batch 4 (P1-E):
 - TypeScript compilation: **PASS** (no errors in menu.ts, edit-item-form.tsx, menu-item-row.tsx, page.tsx)
 - ESLint: **NOT TESTED**
 - Build: **NOT TESTED**
 - Browser smoke (edit form modal, image delete, save changes): **NOT TESTED** (manual verification needed on staging)
 
-Batch 3:
-
+Batch 3 (P1-A):
 - TypeScript compilation: **NOT TESTED** (Node.js/npm unavailable in sandbox, but code verified for correctness)
 - ESLint: **NOT TESTED**
 - Build: **NOT TESTED**

@@ -4,10 +4,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { formatZAR } from "@/lib/utils";
+import { haversineDistanceKm, estimateDeliveryMinutes } from "@/lib/geo";
 import { ReviewForm } from "./review-form";
 import { OrderActions } from "./order-actions";
+import { OrderTimeline } from "@/components/order-timeline";
+import { DriverCard } from "@/components/driver-card";
 
-const ORDER_STEPS = ["PAID", "SCHEDULED", "IN_PREPARATION", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"] as const;
 const BUYER_CANCELABLE_STATUSES = ["PAYMENT_PENDING", "PAID", "SCHEDULED"];
 
 export default async function BuyerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +19,20 @@ export default async function BuyerOrderDetailPage({ params }: { params: Promise
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { business: true, branch: true, items: true, driverAssignment: { include: { driver: { include: { user: true } } } } }
+    include: {
+      business: true,
+      branch: { include: { business: true } },
+      items: true,
+      driverAssignment: {
+        include: {
+          driver: {
+            include: {
+              user: true
+            }
+          }
+        }
+      }
+    }
   });
   if (!order || order.buyerId !== user.id) notFound();
 
@@ -25,7 +40,15 @@ export default async function BuyerOrderDetailPage({ params }: { params: Promise
     where: { orderId: order.id, authorId: user.id, targetType: "BUSINESS" }
   });
 
-  const currentStepIndex = ORDER_STEPS.indexOf(order.status as (typeof ORDER_STEPS)[number]);
+  // Calculate delivery ETA for delivery orders
+  let eta: { min: number; max: number; label: string } | null = null;
+  if (order.fulfillmentType === "DELIVERY" && order.deliveryLat && order.deliveryLng) {
+    const distance = haversineDistanceKm(
+      { lat: Number(order.branch.latitude), lng: Number(order.branch.longitude) },
+      { lat: Number(order.deliveryLat), lng: Number(order.deliveryLng) }
+    );
+    eta = estimateDeliveryMinutes(distance);
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
@@ -36,24 +59,40 @@ export default async function BuyerOrderDetailPage({ params }: { params: Promise
             {order.reference} · {order.branch.name}
           </p>
         </div>
-        <Link href={`/dashboard/buyer/orders/${order.id}/receipt`} className="text-xs font-semibold text-amber-700 hover:text-amber-800">
+        <Link
+          href={`/dashboard/buyer/orders/${order.id}/receipt`}
+          className="text-xs font-semibold text-amber-700 hover:text-amber-800"
+        >
           View receipt
         </Link>
       </div>
 
-      {order.status !== "CANCELED" && order.status !== "REFUNDED" && currentStepIndex >= 0 && (
-        <div className="mt-6 flex items-center gap-1">
-          {ORDER_STEPS.map((step, i) => (
-            <div key={step} className="flex-1">
-              <div className={`h-1.5 rounded-full ${i <= currentStepIndex ? "bg-amber-600" : "bg-charcoal-100"}`} />
-            </div>
-          ))}
+      {/* Status Badge */}
+      <div className="mt-4">
+        <p className="text-sm font-medium text-charcoal-700">
+          Status:{" "}
+          <Badge tone={order.status === "CANCELED" ? "danger" : order.status === "DELIVERED" || order.status === "COMPLETED" ? "success" : "info"}>
+            {order.status.replaceAll("_", " ")}
+          </Badge>
+        </p>
+      </div>
+
+      {/* ETA for delivery orders */}
+      {eta && order.fulfillmentType === "DELIVERY" && ["PAID", "IN_PREPARATION", "READY", "OUT_FOR_DELIVERY"].includes(order.status) && (
+        <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm">
+          <p className="font-medium text-amber-900">Estimated delivery: {eta.label}</p>
         </div>
       )}
-      <p className="mt-2 text-sm font-medium text-charcoal-700">
-        Status: <Badge tone={order.status === "CANCELED" ? "danger" : "info"}>{order.status.replaceAll("_", " ")}</Badge>
-      </p>
 
+      {/* Order Timeline */}
+      {order.status !== "CANCELED" && order.status !== "REFUNDED" && (
+        <div className="mt-6 rounded-2xl border border-charcoal-100 bg-white p-6 shadow-card">
+          <h2 className="mb-4 font-semibold text-charcoal-800">Order Status</h2>
+          <OrderTimeline status={order.status} orderType={order.type} />
+        </div>
+      )}
+
+      {/* Items */}
       <div className="mt-6 rounded-2xl border border-charcoal-100 bg-white p-6 shadow-card">
         <h2 className="font-semibold text-charcoal-800">Items</h2>
         <div className="mt-3 divide-y divide-charcoal-50">
@@ -96,13 +135,23 @@ export default async function BuyerOrderDetailPage({ params }: { params: Promise
         </div>
       </div>
 
+      {/* Driver Card */}
       {order.driverAssignment && (
-        <div className="mt-4 rounded-xl border border-charcoal-100 bg-white p-4 text-sm">
-          <p className="text-charcoal-400">Driver</p>
-          <p className="mt-1 font-medium text-charcoal-800">
-            {order.driverAssignment.driver.user.firstName} {order.driverAssignment.driver.user.lastName} ·{" "}
-            {order.driverAssignment.status.replaceAll("_", " ")}
-          </p>
+        <div className="mt-6">
+          <DriverCard
+            driverName={`${order.driverAssignment.driver.user.firstName} ${order.driverAssignment.driver.user.lastName}`}
+            vehicleType={order.driverAssignment.driver.vehicleType}
+            licensePlate={order.driverAssignment.driver.licensePlate}
+            status={order.driverAssignment.status}
+            currentLat={order.driverAssignment.driver.currentLat}
+            currentLng={order.driverAssignment.driver.currentLng}
+            pickupLat={Number(order.branch.latitude)}
+            pickupLng={Number(order.branch.longitude)}
+            deliveryLat={order.deliveryLat}
+            deliveryLng={order.deliveryLng}
+            orderId={order.id}
+            fulfillmentType={order.fulfillmentType}
+          />
         </div>
       )}
 

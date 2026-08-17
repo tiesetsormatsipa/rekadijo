@@ -503,10 +503,11 @@ Shows quotation items, revisions, vendor messages, status timeline.
 
 ### Order Detail (`/dashboard/buyer/orders/[id]`)
 
-**Components:** `order-actions.tsx`, `review-form.tsx`  
-**Actions:** Cancel order (`cancelOrderAction`), reorder (`getReorderItemsAction`), submit review (`submitOrderReviewAction`)
+**Components:** `order-timeline.tsx`, `driver-card.tsx`, `order-actions.tsx`, `review-form.tsx`  
+**Actions:** Cancel order (`cancelOrderAction`), reorder (`getReorderItemsAction`), submit review (`submitOrderReviewAction`)  
+**API:** `GET /api/orders/[id]/driver-location` — returns current driver location for polling (30s interval)
 
-Status timeline, driver info if assigned.
+Rich status timeline with visual stepper, driver info with vehicle details, location map (if delivering), delivery ETA, and review form after completion.
 
 ### Receipt (`/dashboard/buyer/orders/[id]/receipt`)
 
@@ -704,6 +705,8 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | `QuotationBuilder` | `quotation-builder.tsx` | Quotation request builder (cart lines + form) |
 | `VendorMap` | `vendor-map.tsx` | Leaflet map component |
 | `MapPageClient` | `map-page-client.tsx` | Map page client wrapper |
+| `OrderTimeline` | `order-timeline.tsx` | Buyer order status timeline with visual stepper |
+| `DriverCard` | `driver-card.tsx` | Driver info card with live location polling and mini map |
 | `DashboardSidebar` | `dashboard-sidebar.tsx` | Desktop sidebar for dashboards |
 | `NotificationBell` | `notification-bell.tsx` | Header notification dropdown |
 | `MessageButton` | `message-button.tsx` | Start/view conversation |
@@ -726,7 +729,7 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | Auth | `auth.ts`, `auth-token.ts` | Session management, JWT, password hashing |
 | RBAC | `rbac.ts` | Permission checks, dashboard access, default staff roles |
 | Quotation | `quotation.ts` | State machine, transitions, status labels, reference generation |
-| Geo | `geo.ts` | Haversine distance, delivery availability resolution, fee estimation, branch ranking |
+| Geo | `geo.ts` | Haversine distance, delivery availability resolution, fee estimation, delivery ETA calculation, branch ranking |
 | Store Hours | `store-hours.ts` | Open/closed status from `OperatingHour` rows |
 | Promotions | `promotions.ts` | Promo code validation logic |
 | Branch Listings | `branch-listings.ts` | Transform businesses into branch-level card data |

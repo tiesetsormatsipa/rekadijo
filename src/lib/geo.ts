@@ -121,6 +121,34 @@ export function estimateDeliveryFee(distanceKm: number, opts?: { baseFee?: numbe
   return Math.min(cap, Math.round(baseFee + distanceKm * perKm));
 }
 
+/**
+ * Estimate delivery time in minutes.
+ * Formula: prep time + travel time
+ * - Prep time: 10 min minimum (order processing + packing)
+ * - Travel time: distance / average speed (assume 30 km/h in urban areas)
+ * Returns a range: [min, max] in minutes
+ */
+export function estimateDeliveryMinutes(
+  distanceKm: number,
+  opts?: { prepTime?: number; speedKmPerHour?: number }
+): { min: number; max: number; label: string } {
+  const prepTime = opts?.prepTime ?? 10;
+  const speed = opts?.speedKmPerHour ?? 30;
+
+  const travelTime = (distanceKm / speed) * 60; // Convert to minutes
+  const minTime = Math.max(10, Math.ceil(prepTime + travelTime * 0.8)); // Optimistic: 80% of travel time
+  const maxTime = Math.ceil(prepTime + travelTime * 1.2); // Pessimistic: 120% of travel time
+
+  const label =
+    minTime === maxTime
+      ? `${minTime} min`
+      : minTime > 60
+        ? `${Math.floor(minTime / 60)}h ${minTime % 60}m – ${Math.floor(maxTime / 60)}h ${maxTime % 60}m`
+        : `${minTime}–${maxTime} min`;
+
+  return { min: minTime, max: maxTime, label };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Order size / bulk-order guidance
 // ─────────────────────────────────────────────────────────────────────────
