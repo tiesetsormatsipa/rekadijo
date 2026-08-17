@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import Image from "next/image";
+import { useQuotationCart } from "@/lib/cart-store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, Send } from "lucide-react";
@@ -12,29 +12,13 @@ import { formatZAR } from "@/lib/utils";
 import { useAddressStore } from "@/lib/address-store";
 import { AddressSelector, type ResolvedDelivery } from "@/components/address-selector";
 
-type MenuItemLite = {
-  id: string;
-  name: string;
-  basePrice: number;
-  unitLabel: string | null;
-  minQuantity: number;
-  maxQuantity: number | null;
-  options: Array<{ choiceLabel: string; priceDelta: number }>;
-  imageUrl?: string | null;
-};
-
-type CategoryLite = { id: string; name: string; items: MenuItemLite[] };
-
-type CartLine = { menuItemId: string; name: string; unitPrice: number; quantity: number; optionLabel?: string };
-
 export function QuotationBuilder({
   businessId,
   branchId,
   branchLat,
   branchLng,
   deliveryRadiusKm,
-  fulfillmentType,
-  menuCategories
+  fulfillmentType
 }: {
   businessId: string;
   branchId: string;
@@ -42,11 +26,10 @@ export function QuotationBuilder({
   branchLng: number;
   deliveryRadiusKm: number | null;
   fulfillmentType: "PICKUP" | "DELIVERY" | "EITHER";
-  menuCategories: CategoryLite[];
 }) {
   const router = useRouter();
   const { mode } = useAddressStore();
-  const [cart, setCart] = useState<Record<string, CartLine>>({});
+  const { cart, updateLineQty, clearCart } = useQuotationCart(businessId, branchId);
   const [eventType, setEventType] = useState("");
   const [fulfillment, setFulfillment] = useState<"PICKUP" | "DELIVERY">(
     fulfillmentType === "DELIVERY" ? "DELIVERY" : "PICKUP"
@@ -60,26 +43,9 @@ export function QuotationBuilder({
     if (fulfillmentType === "EITHER") setFulfillment(mode);
   }, [mode, fulfillmentType]);
 
-  const allItems = useMemo(() => menuCategories.flatMap((c) => c.items), [menuCategories]);
-
-  function updateQuantity(item: MenuItemLite, delta: number) {
-    setCart((prev) => {
-      const key = item.id;
-      const existing = prev[key];
-      const nextQty = existing ? existing.quantity + delta : delta > 0 ? item.minQuantity : 0;
-      const qty = Math.max(0, Math.min(nextQty, item.maxQuantity ?? Infinity));
-      if (qty <= 0) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return { ...prev, [key]: { menuItemId: item.id, name: item.name, unitPrice: item.basePrice, quantity: qty } };
-    });
-  }
-
-  const lines = Object.values(cart);
-  const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
-  const totalUnits = lines.reduce((sum, l) => sum + l.quantity, 0);
+  const lines = useMemo(() => Object.entries(cart).filter(([, line]) => line.quantity > 0), [cart]);
+  const subtotal = lines.reduce((sum, [, line]) => sum + line.unitPrice * line.quantity, 0);
+  const totalUnits = lines.reduce((sum, [, line]) => sum + line.quantity, 0);
   const sizeInfo = classifyOrderSize(totalUnits);
 
   async function handleSubmit() {
@@ -111,7 +77,11 @@ export function QuotationBuilder({
       deliveryAddress: fulfillment === "DELIVERY" ? resolvedDelivery?.label : undefined,
       deliveryLat: fulfillment === "DELIVERY" ? resolvedDelivery?.lat : undefined,
       deliveryLng: fulfillment === "DELIVERY" ? resolvedDelivery?.lng : undefined,
-      items: lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, optionLabel: l.optionLabel }))
+      items: lines.map(([, line]) => ({
+        menuItemId: line.menuItemId,
+        quantity: line.quantity,
+        optionLabels: line.optionLabels
+      }))
     });
     setSubmitting(false);
 
@@ -119,6 +89,7 @@ export function QuotationBuilder({
       toast.error(result.error);
       return;
     }
+    clearCart();
     toast.success("Quotation request sent! The vendor will respond soon.");
     router.push(`/dashboard/buyer/quotations/${result.quotationId}`);
   }
@@ -127,50 +98,46 @@ export function QuotationBuilder({
     <div className="rounded-2xl border border-charcoal-100 bg-white p-5 shadow-card">
       <h3 className="font-display text-lg font-semibold text-charcoal-900">Build a quotation</h3>
       <p className="mt-1 text-xs text-charcoal-500">
-        Add items, date, notes, and delivery details. The vendor replies with confirmed pricing.
+        Add items from the menu, then set date, notes, and delivery details. The vendor replies with confirmed pricing.
       </p>
 
       <div className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1">
-        {allItems.map((item) => {
-          const qty = cart[item.id]?.quantity ?? 0;
-          return (
-            <div key={item.id} className="flex items-center justify-between gap-3 border-b border-charcoal-50 pb-3">
-              <div className="flex min-w-0 items-center gap-3">
-                {item.imageUrl && (
-                  <span className="relative h-11 w-11 flex-none overflow-hidden rounded-lg bg-charcoal-100">
-                    <Image src={item.imageUrl} alt="" fill sizes="44px" className="object-cover" unoptimized />
-                  </span>
+        {lines.length === 0 ? (
+          <p className="py-6 text-center text-sm text-charcoal-400">No items yet. Tap Quote on a menu item.</p>
+        ) : (
+          lines.map(([lineKey, line]) => (
+            <div key={lineKey} className="flex items-center justify-between gap-3 border-b border-charcoal-50 pb-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-charcoal-800">{line.name}</p>
+                {line.optionLabels && line.optionLabels.length > 0 && (
+                  <p className="text-xs text-charcoal-400">{line.optionLabels.join(", ")}</p>
                 )}
-                <span className="min-w-0">
-                <p className="truncate text-sm font-medium text-charcoal-800">{item.name}</p>
                 <p className="text-xs text-charcoal-400">
-                  {formatZAR(item.basePrice)}
-                  {item.unitLabel ? ` / ${item.unitLabel}` : ""}
+                  {formatZAR(line.unitPrice)} each
                 </p>
-                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => updateQuantity(item, -1)}
+                  onClick={() => updateLineQty(lineKey, -1)}
                   className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 text-charcoal-600 hover:bg-charcoal-50 focus-ring"
-                  aria-label={`Decrease ${item.name}`}
+                  aria-label={`Decrease ${line.name}`}
                 >
                   <Minus className="h-3 w-3" />
                 </button>
-                <span className="w-6 text-center text-sm font-medium">{qty}</span>
+                <span className="w-6 text-center text-sm font-medium">{line.quantity}</span>
                 <button
                   type="button"
-                  onClick={() => updateQuantity(item, 1)}
+                  onClick={() => updateLineQty(lineKey, 1)}
                   className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 text-charcoal-600 hover:bg-charcoal-50 focus-ring"
-                  aria-label={`Increase ${item.name}`}
+                  aria-label={`Increase ${line.name}`}
                 >
                   <Plus className="h-3 w-3" />
                 </button>
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
 
       {totalUnits > 0 && (
@@ -252,7 +219,11 @@ export function QuotationBuilder({
 
       <Button
         onClick={handleSubmit}
-        disabled={submitting || (fulfillment === "DELIVERY" && resolvedDelivery !== null && !resolvedDelivery.inRange)}
+        disabled={
+          submitting ||
+          lines.length === 0 ||
+          (fulfillment === "DELIVERY" && resolvedDelivery !== null && !resolvedDelivery.inRange)
+        }
         className="mt-4 w-full"
       >
         <Send className="h-4 w-4" /> {submitting ? "Sending..." : "Request quotation"}

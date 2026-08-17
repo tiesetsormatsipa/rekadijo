@@ -51,8 +51,11 @@ Inspect
 → Re-verify
 → Document
 → Update Handover
+→ Git add, commit, push
 → Continue
 ```
+
+After verification passes and documentation is updated, **commit and push the batch** per `AI_ROADMAP.md` §1.3. Do not leave completed batches uncommitted.
 
 Do not consider a task complete until its required verification and documentation have been completed.
 

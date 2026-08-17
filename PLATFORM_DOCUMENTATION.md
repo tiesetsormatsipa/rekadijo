@@ -4,7 +4,7 @@
 >
 > This document covers the **code side only**: architecture, file tree, routes, data model, server actions, components, and gaps vs a full Uber Eats–scale platform.
 >
-> Last documented: August 13, 2026
+> Last documented: August 17, 2026
 >
 > **For AI agents:**
 > - [`AI_ROADMAP.md`](./AI_ROADMAP.md) — what to build next (prioritized batches, acceptance criteria)
@@ -124,7 +124,7 @@ rekadijo/
 │   │       └── notifications/
 │   ├── components/            # Shared UI components (24 files)
 │   │   └── ui/                # Primitive UI (button, badge)
-│   ├── lib/                   # Core utilities (12 files)
+│   ├── lib/                   # Core utilities (13 files)
 │   ├── server/actions/        # All database mutations (17 files)
 │   ├── types/                 # TypeScript declarations
 │   └── proxy.ts               # Dashboard route protection
@@ -387,16 +387,18 @@ When changing code related to these invariants, the agent should add or update a
 1. **Header** — name, rating, category, description, ordering mode badges, save vendor button
 2. **Branch selector** — pill tabs when multiple branches
 3. **Branch info bar** — address, lead time, fulfillment type, open/closed status (`resolveOpenStatus`)
-4. **Menu (2/3 width)** — sticky category anchor chips, photo-rich menu rows with dietary tags, availability badges, favorite button
+4. **Menu (2/3 width)** — sticky category anchor chips; `VendorMenuItems` with photo-rich rows, dietary tags, availability badges, favorite button, and `MenuItemModal` for options/detail
 5. **Order panel (1/3 width, sticky)** — `VendorOrderPanel` with tabs:
-   - **Order now** → `InstantOrderCart` (if branch accepts instant orders)
-   - **Quote** → `QuotationBuilder` (always available for quotation-eligible items)
+   - **Order now** → `InstantOrderCart` (if branch accepts instant orders) — shows persisted cart lines added from the menu
+   - **Quote** → `QuotationBuilder` — shows persisted quotation lines added from the menu
 6. **Reviews** — `ReviewsList`
 
 **Key client components:**
+- `VendorMenuItems` — menu list + add-to-cart/quote via modal
+- `MenuItemModal` — item detail, option groups, quantity, add to instant or quotation cart
 - `VendorOrderPanel` — tab switcher
-- `InstantOrderCart` — cart, promo code, tip, checkout
-- `QuotationBuilder` — item selection, event type, date, delivery address, order size guidance
+- `InstantOrderCart` — cart lines, promo code, tip, checkout
+- `QuotationBuilder` — cart lines, event type, date, delivery address, order size guidance
 - `SaveVendorButton`, `FavoriteItemButton`
 
 ---
@@ -695,8 +697,11 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | `CategoryRow` | `category-row.tsx` | Food category icon row |
 | `NearbyVendorsSection` | `nearby-vendors-section.tsx` | Geolocation-based nearby vendors |
 | `VendorOrderPanel` | `vendor-order-panel.tsx` | Instant vs Quote tab switcher |
-| `InstantOrderCart` | `instant-order-cart.tsx` | Instant order cart + checkout |
-| `QuotationBuilder` | `quotation-builder.tsx` | Quotation request builder |
+| `VendorMenuItems` | `vendor-menu-items.tsx` | Vendor menu list with modal add-to-cart/quote |
+| `MenuItemModal` | `menu-item-modal.tsx` | Item detail modal with option groups and quantity |
+| `InstantOrderCart` | `instant-order-cart.tsx` | Instant order cart lines + checkout |
+| `MobileCartBar` | `mobile-cart-bar.tsx` | Mobile-only sticky bottom bar showing item count + subtotal; opens full cart in modal |
+| `QuotationBuilder` | `quotation-builder.tsx` | Quotation request builder (cart lines + form) |
 | `VendorMap` | `vendor-map.tsx` | Leaflet map component |
 | `MapPageClient` | `map-page-client.tsx` | Map page client wrapper |
 | `DashboardSidebar` | `dashboard-sidebar.tsx` | Desktop sidebar for dashboards |
@@ -726,6 +731,8 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | Promotions | `promotions.ts` | Promo code validation logic |
 | Branch Listings | `branch-listings.ts` | Transform businesses into branch-level card data |
 | Address Store | `address-store.tsx` | Client context for selected address + delivery/pickup preference (localStorage) |
+| Cart Store | `cart-store.tsx` | Client context for instant + quotation carts per `businessId:branchId` (localStorage); line keys include option labels; exposes total item count for bottom nav badge |
+| Menu Options | `menu-options.ts` | Shared option grouping/resolution for client modal and server pricing |
 | Storage | `storage.ts` | File upload driver (local disk; swappable for S3) |
 | Nav Config | `nav-config.ts` | Navigation items per role |
 | Prisma | `prisma.ts` | Prisma client singleton |
@@ -825,7 +832,7 @@ Do not upgrade a feature from partial/placeholder to implemented without corresp
 | Interactive map | ✅ | `/map`, Leaflet + OSM |
 | Vendor detail with menu | ✅ | `/vendors/[slug]` |
 | Branch switching | ✅ | Query param `?branch=` |
-| Instant ordering + cart | ✅ | `InstantOrderCart` |
+| Instant ordering + cart | ✅ | `InstantOrderCart` — persisted via `cart-store.tsx`; min order enforced client + server |
 | Quotation ordering | ✅ | `QuotationBuilder` (differentiator) |
 | Delivery/pickup toggle | ✅ | `AddressBar`, address store |
 | Saved addresses | ✅ | Buyer profile + address store |
@@ -841,7 +848,7 @@ Do not upgrade a feature from partial/placeholder to implemented without corresp
 | Store open/closed | ✅ | `store-hours.ts`, badges on vendor page |
 | In-app messaging | ✅ | `/dashboard/messages` |
 | Notifications | ✅ | Bell + inbox (in-app only) |
-| Mobile bottom nav | ✅ | `BottomNav` |
+| Mobile bottom nav | ✅ | `BottomNav` — cart badge wired via `cart-store.tsx` |
 | Vendor onboarding | ✅ | `/vendors/join` |
 | Admin verification | ✅ | Verification queue |
 | Driver assignments | ✅ | Status progression |
@@ -862,11 +869,11 @@ Do not upgrade a feature from partial/placeholder to implemented without corresp
 | **Push notifications** | In-app only; no mobile/web push | Firebase Cloud Messaging or web push API |
 | **Address autocomplete/geocoding** | Manual address entry + browser geolocation | Google Places API or Mapbox Geocoding |
 | **Native mobile apps** | Web-only (responsive) | React Native / Flutter wrapper or PWA |
-| **Cart persistence** | Cart resets on page navigation | localStorage or server-side cart model |
-| **Menu item options UI** | `MenuItemOption` model exists but limited buyer-facing option picker | Item detail modal with size/add-on selection |
-| **Item detail modal** | Menu items shown inline only | Expandable modal with full description, options, nutrition |
+| **Cart persistence** | ✅ Implemented | `src/lib/cart-store.tsx`, `instant-order-cart.tsx`, `quotation-builder.tsx` |
+| **Menu item options UI** | ✅ Implemented | `menu-item-modal.tsx`, `vendor-menu-items.tsx`, `menu-options.ts`; server validates via `optionLabels` in `createInstantOrderAction` / `createQuotationAction` |
+| **Item detail modal** | ✅ Implemented | `MenuItemModal` — description, dietary tags, options, quantity |
 | **Sticky mobile checkout bar** | Order panel is sidebar (desktop-first) | Fixed bottom bar on mobile with cart summary |
-| **Order minimum enforcement UI** | `minOrderAmount` displayed but weak enforcement at checkout | Block checkout below minimum with clear messaging |
+| **Order minimum enforcement UI** | ✅ Implemented | `instant-order-cart.tsx`, `createInstantOrderAction` — blocks checkout below `minOrderAmount` |
 
 #### Important (operational maturity)
 

@@ -7,12 +7,14 @@ import { getCurrentUser } from "@/lib/auth";
 import { generateReference } from "@/lib/quotation";
 import { calculateDiscount } from "@/lib/promotions";
 import { haversineDistanceKm, estimateDeliveryFee } from "@/lib/geo";
+import { resolveServerLinePricing, type MenuOption } from "@/lib/menu-options";
 import type { QuotationActionResult } from "@/server/actions/quotations";
 
 const cartItemSchema = z.object({
   menuItemId: z.string(),
   quantity: z.number().int().min(1),
-  optionLabel: z.string().optional()
+  optionLabel: z.string().optional(),
+  optionLabels: z.array(z.string()).optional()
 });
 
 const instantOrderSchema = z.object({
@@ -93,21 +95,35 @@ export async function createInstantOrderAction(input: unknown): Promise<Quotatio
   let subtotal = 0;
   const itemsToCreate = data.items.map((cartItem) => {
     const menuItem = menuItems.find((m) => m.id === cartItem.menuItemId)!;
-    const option = menuItem.options.find((o) => o.choiceLabel === cartItem.optionLabel);
-    const unitPrice = Number(menuItem.basePrice) + Number(option?.priceDelta ?? 0);
-    const lineTotal = unitPrice * cartItem.quantity;
+    const dbOptions: MenuOption[] = menuItem.options.map((o) => ({
+      name: o.name,
+      choiceLabel: o.choiceLabel,
+      priceDelta: Number(o.priceDelta),
+      isDefault: o.isDefault
+    }));
+    const optionLabels = cartItem.optionLabels ?? (cartItem.optionLabel ? [cartItem.optionLabel] : undefined);
+    const pricing = resolveServerLinePricing(Number(menuItem.basePrice), dbOptions, optionLabels);
+    const lineTotal = pricing.unitPrice * cartItem.quantity;
     subtotal += lineTotal;
+    const suffix = optionLabels?.length ? ` (${optionLabels.join(", ")})` : "";
     return {
       menuItemId: menuItem.id,
-      nameSnapshot: option ? `${menuItem.name} (${option.choiceLabel})` : menuItem.name,
+      nameSnapshot: `${menuItem.name}${suffix}`,
       quantity: cartItem.quantity,
-      unitPrice,
+      unitPrice: pricing.unitPrice,
       lineTotal,
-      optionsSnapshot: option ? { choiceLabel: option.choiceLabel } : undefined
+      optionsSnapshot: pricing.optionsSnapshot
     };
   });
 
   const business = await prisma.business.findUniqueOrThrow({ where: { id: data.businessId } });
+  if (business.minOrderAmount && subtotal < Number(business.minOrderAmount)) {
+    return {
+      ok: false,
+      error: `Minimum order is R${Number(business.minOrderAmount).toFixed(0)}. Add more items to checkout.`
+    };
+  }
+
   const asapScheduledFor = new Date(Date.now() + business.leadTimeHours * 60 * 60 * 1000);
   const scheduledFor = data.isAsap ? asapScheduledFor : data.scheduledFor ? new Date(data.scheduledFor) : asapScheduledFor;
 

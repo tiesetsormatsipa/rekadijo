@@ -21,7 +21,7 @@
 6. **Minimize scope.** One focused batch per PR/commit. Do not refactor unrelated files.
 7. **Maintain `HANDOVER.md` after every batch** — this is mandatory, not optional. See [§1.1 HANDOVER.md maintenance protocol](#11-handovermd-maintenance-protocol-mandatory).
 8. **Maintain `PLATFORM_DOCUMENTATION.md` when code changes** — this is mandatory, not optional. See [§1.2 PLATFORM_DOCUMENTATION.md maintenance protocol](#12-platform_documentationmd-maintenance-protocol-mandatory).
-9. **Do not commit or push** unless the user explicitly asks.
+9. **Commit and push after every batch** — this is mandatory, not optional. See [§1.3 Git commit protocol](#13-git-commit-protocol-mandatory).
 
 ## 1.0 Autonomous Execution Protocol
 
@@ -44,7 +44,8 @@ For every work session, the AI MUST follow this sequence:
 10. If verification fails, diagnose the underlying problem, fix it, and re-run verification.
 11. Update all affected documentation in the same session.
 12. Update `HANDOVER.md` with evidence, status, blockers, and the next task.
-13. Select the next eligible task automatically when the current environment permits continued work.
+13. **Git add, commit, and push** the batch per [§1.3](#13-git-commit-protocol-mandatory).
+14. Select the next eligible task automatically when the current environment permits continued work.
 
 The AI MUST NOT require the user to restate instructions that are already defined in this repository documentation.
 
@@ -108,6 +109,7 @@ A task is DONE only when all applicable conditions are satisfied:
 - no known regression has been introduced;
 - `PLATFORM_DOCUMENTATION.md` is updated when required;
 - `HANDOVER.md` is updated;
+- batch is committed and pushed per §1.3;
 - acceptance criteria are explicitly satisfied.
 
 A task is NOT complete because the code appears correct.
@@ -172,7 +174,6 @@ Existing functionality must not be broken in exchange for completing a new featu
 The AI may work autonomously by default, but MUST obtain explicit user approval before:
 
 - production deployment;
-- pushing to a remote repository;
 - deleting production data;
 - destructive database migrations;
 - credential rotation or secret replacement;
@@ -458,7 +459,41 @@ Change the `Last documented:` date at the top of `PLATFORM_DOCUMENTATION.md` to 
 - ❌ Rewrite entire sections unnecessarily — surgical updates only
 - ❌ Duplicate `AI_ROADMAP.md` task specs — PLATFORM_DOCUMENTATION describes **what exists**; AI_ROADMAP describes **what to build next**
 
-#### Session checklist (both docs)
+### 1.3 Git commit protocol (MANDATORY)
+
+**Every AI agent MUST `git add`, `git commit`, and `git push` after completing each batch** — after verification passes and documentation is updated. Treat version control as part of the batch definition of done, not an optional cleanup step.
+
+#### When to commit
+
+- ✅ After completing any work batch (feature, fix, refactor, doc update tied to a batch)
+- ✅ After verification passes (typecheck, lint, build at minimum)
+- ✅ After `HANDOVER.md` and `PLATFORM_DOCUMENTATION.md` are updated for the batch
+- ❌ Do not commit broken or unverified work
+- ❌ Do not commit `.env`, credentials, or secrets
+
+#### What to do
+
+1. **Inspect** — run `git status` and `git diff` to confirm only intended files are included.
+2. **Stage** — `git add` all files that belong to the batch (code, docs, lockfile changes caused by the batch).
+3. **Commit** — write a concise message (1–2 sentences) focused on *why*, matching recent repo style.
+4. **Push** — `git push` to the tracked remote branch (`git push -u origin HEAD` if no upstream yet).
+5. **Record** — update `HANDOVER.md` `Current Status` with the commit hash or message.
+
+#### Commit message guidance
+
+- Summarize the batch outcome, not every file touched.
+- Use prefixes when helpful: `feat:`, `fix:`, `docs:`, `refactor:`.
+- Example: `feat: persist instant-order cart and enforce min order at checkout`
+
+#### What NOT to do
+
+- ❌ Leave completed batches uncommitted at session end
+- ❌ Combine unrelated batches in one commit
+- ❌ Push force to `main`/`master`
+- ❌ Skip hooks (`--no-verify`) unless the user explicitly requests it
+- ❌ Commit `.env` or secret files
+
+#### Session checklist (docs + git)
 
 Before ending any session with code changes:
 
@@ -466,6 +501,7 @@ Before ending any session with code changes:
 [ ] HANDOVER.md — status, next steps, backlog, verification (§1.1)
 [ ] PLATFORM_DOCUMENTATION.md — routes, actions, components, gaps (§1.2)
 [ ] AI_ROADMAP.md — only if you added a new P-tier task or completed a batch spec
+[ ] git add → git commit → git push (§1.3)
 ```
 
 ### Session change record
@@ -979,6 +1015,8 @@ IF FAILURE → diagnose → fix → verify again
 UPDATE PLATFORM_DOCUMENTATION when required
   ↓
 UPDATE HANDOVER with evidence, blockers, assumptions, next task
+  ↓
+GIT ADD → COMMIT → PUSH (§1.3)
   ↓
 SELECT next task
 ```

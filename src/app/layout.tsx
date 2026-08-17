@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
 import { CookieBanner } from "@/components/cookie-banner";
 import { AddressProvider } from "@/lib/address-store";
+import { CartProvider } from "@/lib/cart-store";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -57,23 +58,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             isDefault: a.isDefault
           }))}
         >
-          <SiteHeader
-            user={user ? { firstName: user.firstName, globalRole: user.globalRole } : null}
-            notifications={notifications.map((n) => ({
-              id: n.id,
-              title: n.title,
-              body: n.body,
-              linkUrl: n.linkUrl,
-              isRead: n.isRead,
-              createdAt: n.createdAt.toISOString()
-            }))}
-            unreadCount={unreadCount}
-          />
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
-          <SiteFooter />
-          <BottomNav role={user?.globalRole ?? null} cartCount={0} />
-          <CookieBanner />
-          <Toaster position="top-center" richColors closeButton />
+          <CartProvider>
+            <SiteHeader
+              user={user ? { firstName: user.firstName, globalRole: user.globalRole } : null}
+              notifications={notifications.map((n) => ({
+                id: n.id,
+                title: n.title,
+                body: n.body,
+                linkUrl: n.linkUrl,
+                isRead: n.isRead,
+                createdAt: n.createdAt.toISOString()
+              }))}
+              unreadCount={unreadCount}
+            />
+            <main className="flex-1 pb-16 md:pb-0">{children}</main>
+            <SiteFooter />
+            <BottomNav role={user?.globalRole ?? null} />
+            <CookieBanner />
+            <Toaster position="top-center" richColors closeButton />
+          </CartProvider>
         </AddressProvider>
       </body>
     </html>

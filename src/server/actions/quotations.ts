@@ -6,13 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { assertTransition, generateReference } from "@/lib/quotation";
 import { classifyOrderSize, haversineDistanceKm, estimateDeliveryFee } from "@/lib/geo";
+import { resolveServerLinePricing, type MenuOption } from "@/lib/menu-options";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 import type { OrderStatus } from "@prisma/client";
 
 const cartItemSchema = z.object({
   menuItemId: z.string(),
   quantity: z.number().int().min(1),
-  optionLabel: z.string().optional()
+  optionLabel: z.string().optional(),
+  optionLabels: z.array(z.string()).optional()
 });
 
 const createQuotationSchema = z.object({
@@ -72,18 +74,25 @@ export async function createQuotationAction(input: unknown): Promise<QuotationAc
   const itemsToCreate = data.items.map((cartItem) => {
     const menuItem = menuItems.find((m) => m.id === cartItem.menuItemId);
     if (!menuItem) throw new Error("Menu item no longer exists.");
-    const option = menuItem.options.find((o) => o.choiceLabel === cartItem.optionLabel);
-    const unitPrice = Number(menuItem.basePrice) + Number(option?.priceDelta ?? 0);
-    const lineTotal = unitPrice * cartItem.quantity;
+    const dbOptions: MenuOption[] = menuItem.options.map((o) => ({
+      name: o.name,
+      choiceLabel: o.choiceLabel,
+      priceDelta: Number(o.priceDelta),
+      isDefault: o.isDefault
+    }));
+    const optionLabels = cartItem.optionLabels ?? (cartItem.optionLabel ? [cartItem.optionLabel] : undefined);
+    const pricing = resolveServerLinePricing(Number(menuItem.basePrice), dbOptions, optionLabels);
+    const lineTotal = pricing.unitPrice * cartItem.quantity;
     subtotal += lineTotal;
     totalUnits += cartItem.quantity;
+    const suffix = optionLabels?.length ? ` (${optionLabels.join(", ")})` : "";
     return {
       menuItemId: menuItem.id,
-      nameSnapshot: option ? `${menuItem.name} (${option.choiceLabel})` : menuItem.name,
+      nameSnapshot: `${menuItem.name}${suffix}`,
       quantity: cartItem.quantity,
-      unitPrice,
+      unitPrice: pricing.unitPrice,
       lineTotal,
-      optionsSnapshot: option ? { choiceLabel: option.choiceLabel } : undefined
+      optionsSnapshot: pricing.optionsSnapshot
     };
   });
 

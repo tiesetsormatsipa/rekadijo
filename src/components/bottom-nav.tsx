@@ -4,19 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MoreHorizontal, X } from "lucide-react";
-// 1. Import all Lucide icons as an object map for dynamic lookup
 import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { GlobalRole } from "@prisma/client";
 import { navForRole } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
+import { useCartStore } from "@/lib/cart-store";
 
 const AUTH_HIDDEN_PREFIXES = ["/login", "/register"];
 const iconMap = Icons as unknown as Record<string, LucideIcon>;
 
-export function BottomNav({ role, cartCount = 0 }: { role: GlobalRole | null; cartCount?: number }) {
+export function BottomNav({ role }: { role: GlobalRole | null }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { totalItemCount } = useCartStore();
 
   if (AUTH_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) return null;
 
@@ -54,9 +55,9 @@ export function BottomNav({ role, cartCount = 0 }: { role: GlobalRole | null; ca
               >
                 <Icon className={cn("h-5 w-5", active ? "text-amber-600" : "text-charcoal-400")} />
                 <span className={cn("truncate", active ? "text-amber-700" : "text-charcoal-400")}>{item.label}</span>
-                {item.label === "Orders" && area === "buyer" && cartCount > 0 && (
+                {item.label === "Orders" && area === "buyer" && totalItemCount > 0 && (
                   <span className="absolute right-3 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[9px] font-semibold text-white">
-                    {cartCount > 9 ? "9+" : cartCount}
+                    {totalItemCount > 9 ? "9+" : totalItemCount}
                   </span>
                 )}
               </Link>

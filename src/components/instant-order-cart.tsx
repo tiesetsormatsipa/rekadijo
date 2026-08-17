@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useInstantCart } from "@/lib/cart-store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, Zap, Tag, Clock } from "lucide-react";
@@ -13,15 +13,6 @@ import { useAddressStore } from "@/lib/address-store";
 import { TIP_PRESETS_PERCENT } from "@/lib/promotions";
 import { AddressSelector, type ResolvedDelivery } from "@/components/address-selector";
 
-type ItemLite = {
-  id: string;
-  name: string;
-  basePrice: number;
-  unitLabel: string | null;
-  options: Array<{ choiceLabel: string; priceDelta: number }>;
-  imageUrl?: string | null;
-};
-
 export function InstantOrderCart({
   businessId,
   branchId,
@@ -29,8 +20,8 @@ export function InstantOrderCart({
   branchLng,
   deliveryRadiusKm,
   fulfillmentType,
-  items,
-  isOpen
+  isOpen,
+  minOrderAmount
 }: {
   businessId: string;
   branchId: string;
@@ -38,12 +29,12 @@ export function InstantOrderCart({
   branchLng: number;
   deliveryRadiusKm: number | null;
   fulfillmentType: "PICKUP" | "DELIVERY" | "EITHER";
-  items: ItemLite[];
   isOpen: boolean;
+  minOrderAmount?: number | null;
 }) {
   const router = useRouter();
   const { mode } = useAddressStore();
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const { cart, updateLineQty, clearCart } = useInstantCart(businessId, branchId);
   const [fulfillment, setFulfillment] = useState<"PICKUP" | "DELIVERY">(fulfillmentType === "DELIVERY" ? "DELIVERY" : "PICKUP");
   const [resolvedDelivery, setResolvedDelivery] = useState<ResolvedDelivery>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,32 +46,23 @@ export function InstantOrderCart({
   const [tipPercent, setTipPercent] = useState<number | null>(10);
   const [customTip, setCustomTip] = useState("");
 
-  // Sync with the header's saved delivery/pickup preference.
   useEffect(() => {
     if (fulfillmentType === "EITHER") setFulfillment(mode);
   }, [mode, fulfillmentType]);
 
-  // A closed store can't take ASAP orders — default to scheduling ahead instead.
   useEffect(() => {
     if (!isOpen) setIsAsap(false);
   }, [isOpen]);
 
-  const lines = useMemo(
-    () =>
-      Object.entries(cart)
-        .filter(([, qty]) => qty > 0)
-        .map(([id, qty]) => ({ item: items.find((i) => i.id === id)!, qty })),
-    [cart, items]
-  );
-  const subtotal = lines.reduce((sum, l) => sum + l.item.basePrice * l.qty, 0);
+  const lines = useMemo(() => Object.entries(cart).filter(([, line]) => line.quantity > 0), [cart]);
+  const subtotal = lines.reduce((sum, [, line]) => sum + line.unitPrice * line.quantity, 0);
   const tipAmount = customTip ? Number(customTip) || 0 : tipPercent ? Math.round(subtotal * (tipPercent / 100) * 100) / 100 : 0;
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const deliveryFee = fulfillment === "DELIVERY" && resolvedDelivery?.inRange ? resolvedDelivery.fee : 0;
   const total = Math.max(0, subtotal - discountAmount) + deliveryFee + tipAmount;
-
-  function updateQty(id: string, delta: number) {
-    setCart((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + delta) }));
-  }
+  const minOrder = minOrderAmount && minOrderAmount > 0 ? minOrderAmount : null;
+  const belowMinOrder = minOrder != null && subtotal > 0 && subtotal < minOrder;
+  const amountToMin = minOrder != null ? Math.max(0, minOrder - subtotal) : 0;
 
   async function applyPromo() {
     if (!promoInput.trim()) return;
@@ -112,6 +94,10 @@ export function InstantOrderCart({
       toast.error("Choose a date and time, or select ASAP.");
       return;
     }
+    if (belowMinOrder) {
+      toast.error(`Minimum order is ${formatZAR(minOrder!)}. Add ${formatZAR(amountToMin)} more to checkout.`);
+      return;
+    }
     setSubmitting(true);
     const res = await createInstantOrderAction({
       businessId,
@@ -120,7 +106,11 @@ export function InstantOrderCart({
       deliveryAddress: fulfillment === "DELIVERY" ? resolvedDelivery?.label : undefined,
       deliveryLat: fulfillment === "DELIVERY" ? resolvedDelivery?.lat : undefined,
       deliveryLng: fulfillment === "DELIVERY" ? resolvedDelivery?.lng : undefined,
-      items: lines.map((l) => ({ menuItemId: l.item.id, quantity: l.qty })),
+      items: lines.map(([, line]) => ({
+        menuItemId: line.menuItemId,
+        quantity: line.quantity,
+        optionLabels: line.optionLabels
+      })),
       promoCode: appliedPromo?.code,
       tipAmount,
       isAsap,
@@ -131,18 +121,17 @@ export function InstantOrderCart({
       toast.error(res.error);
       return;
     }
+    clearCart();
     toast.success("Order placed and paid (placeholder gateway)!");
     router.push("/dashboard/buyer");
   }
-
-  if (items.length === 0) return null;
 
   return (
     <div className="rounded-2xl border border-charcoal-100 bg-white p-5 shadow-card">
       <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-charcoal-900">
         <Zap className="h-4 w-4" /> Order now
       </h3>
-      <p className="mt-1 text-xs text-charcoal-500">These items are available for instant checkout at this branch.</p>
+      <p className="mt-1 text-xs text-charcoal-500">Add items from the menu, then checkout here.</p>
 
       {!isOpen && (
         <div className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
@@ -151,43 +140,40 @@ export function InstantOrderCart({
       )}
 
       <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 border-b border-charcoal-100 pb-3 text-sm">
-            <div className="flex min-w-0 items-center gap-3">
-              {item.imageUrl && (
-                <span className="relative h-11 w-11 flex-none overflow-hidden rounded-lg bg-charcoal-100">
-                  <Image src={item.imageUrl} alt="" fill sizes="44px" className="object-cover" unoptimized />
-                </span>
-              )}
-              <span className="min-w-0">
-                <p className="truncate font-medium text-charcoal-800">{item.name}</p>
-                <p className="text-xs text-charcoal-500">
-                  {formatZAR(item.basePrice)}
-                  {item.unitLabel ? ` / ${item.unitLabel}` : ""}
-                </p>
-              </span>
+        {lines.length === 0 ? (
+          <p className="py-6 text-center text-sm text-charcoal-400">Your cart is empty. Tap Add on a menu item.</p>
+        ) : (
+          lines.map(([lineKey, line]) => (
+            <div key={lineKey} className="flex items-center justify-between gap-3 border-b border-charcoal-100 pb-3 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-charcoal-800">{line.name}</p>
+                {line.optionLabels && line.optionLabels.length > 0 && (
+                  <p className="text-xs text-charcoal-400">{line.optionLabels.join(", ")}</p>
+                )}
+                <p className="text-xs text-charcoal-500">{formatZAR(line.unitPrice)} each</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateLineQty(lineKey, -1)}
+                  aria-label={`Decrease ${line.name}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="w-5 text-center font-medium">{line.quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => updateLineQty(lineKey, 1)}
+                  aria-label={`Increase ${line.name}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => updateQty(item.id, -1)}
-                aria-label={`Decrease ${item.name}`}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
-              >
-                <Minus className="h-3 w-3" />
-              </button>
-              <span className="w-5 text-center font-medium">{cart[item.id] ?? 0}</span>
-              <button
-                type="button"
-                onClick={() => updateQty(item.id, 1)}
-                aria-label={`Increase ${item.name}`}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-charcoal-200 bg-white text-charcoal-600 hover:bg-charcoal-50 focus-ring"
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {fulfillmentType === "EITHER" && (
@@ -218,7 +204,6 @@ export function InstantOrderCart({
         </div>
       )}
 
-      {/* ASAP vs schedule for later */}
       <div className="mt-4">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-700">
           <Clock className="h-3.5 w-3.5" /> When
@@ -254,14 +239,15 @@ export function InstantOrderCart({
         )}
       </div>
 
-      {/* Promo code */}
       <div className="mt-4">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-700">
           <Tag className="h-3.5 w-3.5" /> Promo code
         </p>
         {appliedPromo ? (
           <div className="mt-1.5 flex items-center justify-between rounded-lg bg-charcoal-50 px-3 py-2 text-xs">
-            <span className="font-medium text-charcoal-800">{appliedPromo.code} — {appliedPromo.label}</span>
+            <span className="font-medium text-charcoal-800">
+              {appliedPromo.code} — {appliedPromo.label}
+            </span>
             <button onClick={() => setAppliedPromo(null)} className="text-charcoal-400 hover:text-red-600">
               Remove
             </button>
@@ -281,7 +267,6 @@ export function InstantOrderCart({
         )}
       </div>
 
-      {/* Tip */}
       <div className="mt-4">
         <p className="text-xs font-semibold text-charcoal-700">Tip {fulfillment === "DELIVERY" ? "your driver" : "the vendor"}</p>
         <div className="mt-1.5 flex gap-2">
@@ -314,6 +299,18 @@ export function InstantOrderCart({
         />
       </div>
 
+      {minOrder != null && (
+        <div
+          className={`mt-4 rounded-lg px-3 py-2 text-xs ${
+            belowMinOrder ? "bg-amber-100 text-amber-900" : "bg-charcoal-50 text-charcoal-600"
+          }`}
+        >
+          {belowMinOrder
+            ? `Minimum order is ${formatZAR(minOrder)} — add ${formatZAR(amountToMin)} more to checkout.`
+            : `Minimum order: ${formatZAR(minOrder)}`}
+        </div>
+      )}
+
       <div className="mt-4 space-y-1 border-t border-charcoal-100 pt-3 text-sm">
         <div className="flex justify-between text-charcoal-600">
           <span>Subtotal</span>
@@ -345,11 +342,16 @@ export function InstantOrderCart({
 
       <Button
         onClick={checkout}
-        disabled={submitting || (fulfillment === "DELIVERY" && resolvedDelivery !== null && !resolvedDelivery.inRange)}
+        disabled={
+          submitting ||
+          belowMinOrder ||
+          lines.length === 0 ||
+          (fulfillment === "DELIVERY" && resolvedDelivery !== null && !resolvedDelivery.inRange)
+        }
         className="mt-3 w-full"
         variant="secondary"
       >
-        {submitting ? "Placing order..." : "Checkout & pay now"}
+        {submitting ? "Placing order..." : belowMinOrder ? `Add ${formatZAR(amountToMin)} to checkout` : "Checkout & pay now"}
       </Button>
     </div>
   );
