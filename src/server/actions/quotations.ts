@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { assertTransition, generateReference } from "@/lib/quotation";
+import { QUOTATION_EXPIRABLE_STATUSES } from "@/lib/quotation-revisions";
 import { classifyOrderSize, haversineDistanceKm, estimateDeliveryFee } from "@/lib/geo";
 import { resolveServerLinePricing, type MenuOption } from "@/lib/menu-options";
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
@@ -207,6 +208,19 @@ export async function reviseQuotationAction(input: unknown): Promise<QuotationAc
   return { ok: true, quotationId: quotation.id };
 }
 
+/** Mark quotation EXPIRED when past expiresAt and still in an open status. */
+export async function expireQuotationIfNeeded(quotationId: string): Promise<void> {
+  const quotation = await prisma.quotation.findUnique({ where: { id: quotationId } });
+  if (!quotation?.expiresAt || quotation.expiresAt >= new Date()) return;
+  if (!QUOTATION_EXPIRABLE_STATUSES.includes(quotation.status as (typeof QUOTATION_EXPIRABLE_STATUSES)[number])) {
+    return;
+  }
+  assertTransition(quotation.status, "EXPIRED");
+  await prisma.quotation.update({ where: { id: quotationId }, data: { status: "EXPIRED" } });
+  revalidatePath(`/dashboard/buyer/quotations/${quotationId}`);
+  revalidatePath(`/dashboard/vendor/quotations/${quotationId}`);
+}
+
 export async function respondToQuotationAction(
   quotationId: string,
   action: "ACCEPT" | "DECLINE",
@@ -216,6 +230,7 @@ export async function respondToQuotationAction(
   if (!user) return { ok: false, error: "Please log in." };
   const quotation = await prisma.quotation.findUnique({ where: { id: quotationId } });
   if (!quotation) return { ok: false, error: "Quotation not found." };
+  if (quotation.status === "EXPIRED") return { ok: false, error: "This quotation has expired." };
 
   const isVendorSide = await hasPermission(user.id, PERMISSIONS.QUOTATION_RESPOND, quotation.businessId);
   const isBuyer = quotation.buyerId === user.id;
@@ -256,6 +271,7 @@ export async function payQuotationAction(quotationId: string, tipAmount = 0): Pr
   if (!user) return { ok: false, error: "Please log in." };
   const quotation = await prisma.quotation.findUnique({ where: { id: quotationId }, include: { items: true } });
   if (!quotation || quotation.buyerId !== user.id) return { ok: false, error: "Not authorized." };
+  if (quotation.status === "EXPIRED") return { ok: false, error: "This quotation has expired." };
   if (quotation.status !== "PAYMENT_PENDING") return { ok: false, error: "This quotation isn't ready for payment." };
 
   assertTransition(quotation.status, "PAID");

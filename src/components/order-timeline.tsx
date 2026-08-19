@@ -44,7 +44,6 @@ export function OrderTimeline({
       {timeline.map((step, i) => {
         const isCompleted = i < currentIndex;
         const isCurrent = i === currentIndex;
-        const isUpcoming = i > currentIndex;
 
         return (
           <div key={step.key} className="flex gap-4">

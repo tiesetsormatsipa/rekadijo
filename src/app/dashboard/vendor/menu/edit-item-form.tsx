@@ -22,12 +22,10 @@ function SubmitButton() {
 
 export function EditItemForm({
   menuItemId,
-  businessId,
   categories,
   item
 }: {
   menuItemId: string;
-  businessId: string;
   categories: Array<{ id: string; name: string }>;
   item: {
     name: string;

@@ -143,12 +143,18 @@ export default async function BuyerOrderDetailPage({ params }: { params: Promise
             vehicleType={order.driverAssignment.driver.vehicleType}
             licensePlate={order.driverAssignment.driver.licensePlate}
             status={order.driverAssignment.status}
-            currentLat={order.driverAssignment.driver.currentLat}
-            currentLng={order.driverAssignment.driver.currentLng}
-            pickupLat={Number(order.branch.latitude)}
-            pickupLng={Number(order.branch.longitude)}
-            deliveryLat={order.deliveryLat}
-            deliveryLng={order.deliveryLng}
+            currentLat={
+              order.driverAssignment.driver.currentLat != null
+                ? Number(order.driverAssignment.driver.currentLat)
+                : null
+            }
+            currentLng={
+              order.driverAssignment.driver.currentLng != null
+                ? Number(order.driverAssignment.driver.currentLng)
+                : null
+            }
+            deliveryLat={order.deliveryLat != null ? Number(order.deliveryLat) : null}
+            deliveryLng={order.deliveryLng != null ? Number(order.deliveryLng) : null}
             orderId={order.id}
             fulfillmentType={order.fulfillmentType}
           />

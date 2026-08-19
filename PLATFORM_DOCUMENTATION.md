@@ -671,13 +671,13 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | `discovery.ts` | `getNearbyVendorsAction` |
 | `driver.ts` | `updateDriverProfileAction`, `assignDriverToOrderAction`, `updateDriverAssignmentStatusAction`, `setDriverAvailabilityAction` |
 | `instant-order.ts` | `createInstantOrderAction` |
-| `menu.ts` | `createCategoryAction`, `deleteCategoryAction`, `createMenuItemAction`, `toggleMenuItemActiveAction`, `deleteMenuItemAction`, `uploadMenuItemMediaAction`, `deleteMediaAction` |
+| `menu.ts` | `createCategoryAction`, `deleteCategoryAction`, `createMenuItemAction`, `updateMenuItemAction`, `toggleMenuItemActiveAction`, `deleteMenuItemAction`, `uploadMenuItemMediaAction`, `deleteMediaAction` |
 | `messaging.ts` | `getOrCreateQuotationConversation`, `sendMessageAction`, `markConversationReadAction` |
 | `notifications.ts` | `markNotificationReadAction`, `markAllNotificationsReadAction` |
 | `orders.ts` | `cancelOrderAction`, `getReorderItemsAction` |
 | `platform-settings.ts` | `getPlatformSetting`, `updatePlatformSettingAction` |
 | `promotions.ts` | `validatePromoCodeAction`, `createPromotionAction`, `togglePromotionAction` |
-| `quotations.ts` | `createQuotationAction`, `markQuotationViewedAction`, `reviseQuotationAction`, `respondToQuotationAction`, `payQuotationAction`, `updateBranchItemAvailabilityAction`, `verifyBusinessAction`, `suspendBusinessAction`, `suspendUserAction`, `updateOrderStatusAction` |
+| `quotations.ts` | `createQuotationAction`, `markQuotationViewedAction`, `reviseQuotationAction`, `expireQuotationIfNeeded`, `respondToQuotationAction`, `payQuotationAction`, `updateBranchItemAvailabilityAction`, `verifyBusinessAction`, `suspendBusinessAction`, `suspendUserAction`, `updateOrderStatusAction` |
 | `reviews.ts` | `submitOrderReviewAction` |
 | `staff.ts` | `inviteStaffAction`, `removeStaffAction`, `createCustomRoleAction`, `assignRoleToStaffAction` |
 | `support.ts` | `submitContactRequestAction` |
@@ -706,7 +706,9 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | `VendorMap` | `vendor-map.tsx` | Leaflet map component |
 | `MapPageClient` | `map-page-client.tsx` | Map page client wrapper |
 | `OrderTimeline` | `order-timeline.tsx` | Buyer order status timeline with visual stepper |
-| `DriverCard` | `driver-card.tsx` | Driver info card with live location polling and mini map |
+| `DriverCard` | `driver-card.tsx` | Driver info card with live location polling (30s) |
+| `DriverTrackingMap` | `driver-tracking-map.tsx` | Leaflet mini-map for driver + delivery pins on buyer order page |
+| `QuotationRevisionComparison` | `quotation-revision-comparison.tsx` | Expandable revision history with side-by-side diff on buyer/vendor quotation pages |
 | `DashboardSidebar` | `dashboard-sidebar.tsx` | Desktop sidebar for dashboards |
 | `NotificationBell` | `notification-bell.tsx` | Header notification dropdown |
 | `MessageButton` | `message-button.tsx` | Start/view conversation |
@@ -729,6 +731,7 @@ All mutations live in `src/server/actions/`. No REST endpoints.
 | Auth | `auth.ts`, `auth-token.ts` | Session management, JWT, password hashing |
 | RBAC | `rbac.ts` | Permission checks, dashboard access, default staff roles |
 | Quotation | `quotation.ts` | State machine, transitions, status labels, reference generation |
+| Quotation Revisions | `quotation-revisions.ts` | Map `QuotationRevision` rows for comparison UI; expiry-eligible status helpers |
 | Geo | `geo.ts` | Haversine distance, delivery availability resolution, fee estimation, delivery ETA calculation, branch ranking |
 | Store Hours | `store-hours.ts` | Open/closed status from `OperatingHour` rows |
 | Promotions | `promotions.ts` | Promo code validation logic |

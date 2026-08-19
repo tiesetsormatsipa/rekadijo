@@ -143,7 +143,6 @@ export function MenuItemRow({
             </div>
             <EditItemForm
               menuItemId={item.id}
-              businessId={businessId}
               categories={categories}
               item={{
                 name: item.name,

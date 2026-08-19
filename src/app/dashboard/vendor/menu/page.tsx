@@ -60,7 +60,7 @@ export default async function VendorMenuPage() {
                     mediaUrl: item.media[0]?.url ?? null,
                     description: item.description,
                     categoryId: item.categoryId,
-                    basePrice: item.basePrice,
+                    basePrice: Number(item.basePrice),
                     unitLabel: item.unitLabel,
                     minQuantity: item.minQuantity,
                     maxQuantity: item.maxQuantity,

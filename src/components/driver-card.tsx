@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Phone, Car } from "lucide-react";
+import { Car } from "lucide-react";
 import dynamic from "next/dynamic";
 
-const LeafletMap = dynamic(() => import("@/components/vendor-map").then(m => m.VendorMap), {
-  ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded-lg bg-charcoal-100" />
-});
+const DriverTrackingMap = dynamic(
+  () => import("@/components/driver-tracking-map").then((m) => m.DriverTrackingMap),
+  {
+    ssr: false,
+    loading: () => <div className="h-64 animate-pulse rounded-lg bg-charcoal-100" />
+  }
+);
 
 type DriverCardProps = {
   driverName: string;
@@ -16,8 +19,6 @@ type DriverCardProps = {
   status: string;
   currentLat?: number | null;
   currentLng?: number | null;
-  pickupLat?: number;
-  pickupLng?: number;
   deliveryLat?: number | null;
   deliveryLng?: number | null;
   orderId: string;
@@ -31,8 +32,6 @@ export function DriverCard({
   status,
   currentLat,
   currentLng,
-  pickupLat,
-  pickupLng,
   deliveryLat,
   deliveryLng,
   orderId,
@@ -99,31 +98,11 @@ export function DriverCard({
 
       {showMap && (
         <div className="mt-4 overflow-hidden rounded-lg border border-charcoal-100">
-          <LeafletMap
-            branches={
-              driverLocation && deliveryLat && deliveryLng
-                ? [
-                    {
-                      id: "delivery",
-                      name: "Delivery Location",
-                      latitude: Number(deliveryLat),
-                      longitude: Number(deliveryLng)
-                    }
-                  ]
-                : []
-            }
-            selectedBranchId="delivery"
-            center={
-              driverLocation
-                ? [driverLocation.lat, driverLocation.lng]
-                : deliveryLat && deliveryLng
-                  ? [Number(deliveryLat), Number(deliveryLng)]
-                  : [pickupLat, pickupLng]
-            }
-            zoom={15}
-            markerLat={driverLocation?.lat}
-            markerLng={driverLocation?.lng}
-            markerLabel="Driver"
+          <DriverTrackingMap
+            driverLat={driverLocation?.lat}
+            driverLng={driverLocation?.lng}
+            deliveryLat={deliveryLat != null ? Number(deliveryLat) : undefined}
+            deliveryLng={deliveryLng != null ? Number(deliveryLng) : undefined}
           />
         </div>
       )}
